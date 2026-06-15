@@ -1,0 +1,57 @@
+# Prerequisites
+*.d
+
+# Compiled Object files
+*.slo
+*.lo
+*.o
+*.obj
+
+# Precompiled Headers
+*.gch
+*.pch
+
+# Compiled Dynamic libraries
+*.so
+*.dylib
+*.dll
+
+# Fortran module files
+*.mod
+*.smod
+
+# Compiled Static libraries
+*.lai
+*.la
+*.a
+*.lib
+
+# Executables
+*.exe
+*.out
+*.app
+
+# CMake build outputs
+/build/
+/build_msvc/
+CMakeFiles/
+CMakeCache.txt
+CMakePresets.json.user
+CMakeLists.txt.user
+
+# IDE-specific files
+.vs/
+.vscode/
+.idea/
+.gemini/
+*.suo
+*.user
+*.sdf
+*.opensdf
+
+# Local/temporary files
+*.log
+*.tmp
+visa_test_msvc.exe
+visa_test.exe
+find_visa.exe

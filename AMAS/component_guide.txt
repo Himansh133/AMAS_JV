@@ -1,0 +1,178 @@
+========================================================================
+             AMAS (Antenna Measurement Automation System)
+                       COMPONENT WORKINGS GUIDE
+========================================================================
+
+This document provides a detailed walkthrough of the directories, components, and
+files in the AMAS codebase, explaining how they work and how they interact.
+
+------------------------------------------------------------------------
+1. ROOT DIRECTORY FILES
+------------------------------------------------------------------------
+* CMakeLists.txt
+  - Type: CMake Build Script
+  - Purpose: Manages project building, compiler settings, and external dependencies.
+  - Workings:
+    1. Sets standard to C++17.
+    2. Integrates Qt6 components: Qt6Core, Qt6Widgets, and Qt6SerialPort.
+    3. Finds and imports the National Instruments / Keysight VISA Library. It checks
+       the compiler bitness (32-bit vs 64-bit) and maps header paths in the
+       "IVI Foundation/VISA" directories accordingly.
+    4. Registers AMAS source files, target library and executables.
+    5. Sets up GoogleTest testing framework (downloads GTest 1.14.0 via FetchContent
+       and links it to compile "AMAS_tests" executable).
+
+* CMakePresets.json
+  - Type: CMake Preset File
+  - Purpose: Configures building profiles for developer environments.
+  - Workings: Sets up a "default" build using the MinGW Makefiles generator, building
+    in Debug mode by default inside a "/build" directory.
+
+* visa_test.cpp
+  - Type: Standalone Test Program
+  - Purpose: Connects directly to a VNA to perform a quick connectivity check.
+  - Workings: Operates sequentially using raw VISA C-style APIs (viOpenDefaultRM,
+    viOpen, viWrite, viRead) to connect to address "GPIB0::18::INSTR", send the "*IDN?"
+    query, print the returned instrument ID string, and close sessions.
+
+------------------------------------------------------------------------
+2. SRC/ LAYER (Main Application Orchestrator)
+------------------------------------------------------------------------
+* main.cpp
+  - Type: Application Entrypoint
+  - Purpose: Boots the program and runs basic diagnostic tests.
+  - Workings:
+    1. Instantiates a QCoreApplication instance.
+    2. Initializes and logs using the custom Application class.
+    3. Performs a sequential HAL (Hardware Abstraction Layer) smoke test:
+       - Instantiates MockVnaDriver, configures frequencies/points, runs a simulated
+         sweep, and prints data points.
+       - Instantiates MockPositionerDriver, moves it to 45 degrees, homing, and shuts
+         down.
+
+* Application.h / Application.cpp
+  - Type: Qt Object Component (QObject)
+  - Purpose: Controls overall application lifecycle state (init, run, stop).
+  - Workings: Provides initialization hooks where logging, configurations, and core
+    subsystems are loaded.
+
+------------------------------------------------------------------------
+3. SRC/CORE/ LOGGING & CONFIGURATION
+------------------------------------------------------------------------
+* core/log/Logger.h & Logger.cpp
+  - Type: Static Utility Component
+  - Purpose: Unified logging console.
+  - Workings: Exposes simple global log functions (Log::debug, Log::info, Log::warn,
+    Log::error) that timestamp and print formatted messages to stdout.
+
+* core/config/SweepConfig.h
+  - Type: Header-only Configuration Struct
+  - Purpose: Defines standard measurement settings.
+  - Workings:
+    - Holds settings for VNA Sweeps (start/stop frequency, power level, IF bandwidth,
+      selected S-parameters like S11/S21, and number of sweep points).
+    - Holds settings for turntable Positioner Sweeps (start/stop angle, step angle,
+      settle time in ms).
+    - Contains a validate() method enforcing safety limits (e.g. valid frequencies,
+      points within 1-10001, power between -50 to 20 dBm) to prevent sending damaging
+      inputs to expensive physical equipment.
+
+------------------------------------------------------------------------
+4. SRC/CORE/VISA (VISA C++ Wrapper Interface)
+------------------------------------------------------------------------
+* core/visa/VISASession.h & VISASession.cpp
+  - Type: C++ RAII Resource Wrapper
+  - Purpose: Provides safe encapsulation of the C-style VISA API.
+  - Workings:
+    - Opens the Default Resource Manager (viOpenDefaultRM) and session connections (viOpen)
+      in connect().
+    - Uses RAII (Resource Acquisition Is Initialization) to automatically release resources
+      (viClose) in its destructor, preventing memory/session leaks.
+    - Explicitly deletes copy constructor and copy assignment operator to prevent duplicate
+      handles, but implements Move Semantics (std::move support).
+    - Exposes simplified C++ write(), read(), and query() methods.
+
+------------------------------------------------------------------------
+5. SRC/CORE/VNA (Vector Network Analyzer Drivers)
+------------------------------------------------------------------------
+* core/vna/IVnaDriver.h
+  - Type: C++ Interface (Abstract Class)
+  - Purpose: Decouples measurement loops from specific VNA hardware models.
+  - Workings: Defines pure virtual functions for connect, disconnect, configure,
+    triggerSweep, readSParameters, and isConnected.
+
+* core/vna/FieldFoxDriver.h & FieldFoxDriver.cpp
+  - Type: Hardware Driver implementation
+  - Purpose: Communicates with a physical Keysight FieldFox Analyzer.
+  - Workings:
+    - Uses VISASession to write SCPI commands to the instrument.
+    - configure() applies SweepConfig settings using commands like "INIT:CONT OFF" (single
+      sweep mode), "SENS:FREQ:STAR", "SENS:FREQ:STOP", and trace layout configuration.
+    - triggerSweep() sends "INIT:IMM" and performs a blocking "*OPC?" query to wait for
+      sweep completion.
+    - readSParameters() requests complex data array with "CALC:DATA? SDATA" (Real/Imaginary
+      comma-separated pairs), parses it, and calculates magnitude (dB) and phase (degrees).
+
+* core/vna/MockVnaDriver.h & MockVnaDriver.cpp
+  - Type: Simulation Driver implementation
+  - Purpose: Simulates a VNA in offline mode without hardware connected.
+  - Workings: Generates mathematically mocked S11/S21 trace data (simulating physical filter
+    responses with magnitude drops/peaks and phase sweeps) matching the requested frequency
+    and point settings.
+
+------------------------------------------------------------------------
+6. SRC/CORE/POSITIONER (Turntable Controller Drivers)
+------------------------------------------------------------------------
+* core/positioner/IPositionerDriver.h
+  - Type: C++ Interface (Abstract Class)
+  - Purpose: Interface contract for any rotary turntable hardware.
+  - Workings: Defines pure virtual methods for connect, disconnect, moveTo (target angle),
+    getCurrentAngle, waitForSettle, home, and emergencyStop.
+
+* core/positioner/MockPositionerDriver.h & MockPositionerDriver.cpp
+  - Type: Simulation Driver implementation
+  - Purpose: Simulates physical rotary stages.
+  - Workings: Emulates motor travel physics. When moveTo(angle) is called, it notes the time.
+    Calls to getCurrentAngle() calculate progress based on a simulated angular speed
+    (30 deg/sec) to emulate real movement delays. waitForSettle() blocks for the exact
+    amount of time needed to reach the target angle.
+
+------------------------------------------------------------------------
+7. TESTS/ (GoogleTest Unit Tests)
+------------------------------------------------------------------------
+* tests/test_vna_driver.cpp
+  - Workings:
+    - Tests the validator logic in SweepConfig (frequencies, point limits, range limits).
+    - Verifies the connection, configuration, and sweep data generator features of
+      MockVnaDriver.
+
+* tests/test_positioner_driver.cpp
+  - Workings:
+    - Verifies connection states, target motion tracking, travel speed simulation, Homings,
+      and Emergency Stop operations in MockPositionerDriver.
+
+------------------------------------------------------------------------
+8. COMPILATION & BUILD INSTRUCTIONS (MSVC VS GCC)
+------------------------------------------------------------------------
+For development on Windows, Visual Studio (MSVC 2022 64-bit) is the recommended
+compiler toolchain. Legacy 32-bit MinGW GCC will fail to link modern 64-bit 
+VISA libraries and does not support official pre-built Qt6 packages.
+
+A. Standalone VISA Connection Verification:
+   Use the MSVC x64 Native Tools developer prompt environment (or execute via
+   cmd.exe as shown below) to build a 64-bit connectivity smoke test:
+   
+   cmd.exe /c "call \"C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Auxiliary\Build\vcvars64.bat\" && cl.exe /EHsc /I \"C:\Program Files\IVI Foundation\VISA\Win64\Include\" visa_test.cpp \"C:\Program Files\IVI Foundation\VISA\Win64\Lib_x64\msc\visa64.lib\" /Fe:visa_test_msvc.exe"
+
+   After building, connect the hardware and execute:
+   .\visa_test_msvc.exe
+
+B. Building the Entire CMake Project (Requires Qt6 MSVC 64-bit):
+   To generate Visual Studio solutions and build:
+   
+   1. Configure with the Visual Studio 2022 generator:
+      cmake -G "Visual Studio 17 2022" -A x64 -DCMAKE_PREFIX_PATH="C:/Path/To/Your/Qt6/msvc2019_64" -B build -S .
+      
+   2. Compile in Debug mode:
+      cmake --build build --config Debug
+========================================================================

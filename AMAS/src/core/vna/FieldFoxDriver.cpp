@@ -40,6 +40,45 @@ void FieldFoxDriver::disconnect() {
     }
 }
 
+bool FieldFoxDriver::loadCalibrationState(const std::string& filename) {
+    if (!m_isConnected) {
+        Log::error("FieldFoxDriver: Cannot load state, not connected.");
+        return false;
+    }
+    if (filename.empty()) {
+        return true;
+    }
+
+    Log::info("FieldFoxDriver: Loading calibration state file: " + filename);
+    if (!m_session.write("MMEM:LOAD:STAT \"" + filename + "\"")) {
+        Log::error("FieldFoxDriver: Failed to write state load command.");
+        return false;
+    }
+
+    // Wait for the state file to be fully loaded
+    m_session.setTimeout(10000); // 10 seconds timeout for large state files
+    std::string response;
+    bool opcOk = m_session.query("*OPC?", response);
+    m_session.setTimeout(5000); // Restore default 5 seconds timeout
+
+    if (!opcOk || response != "1") {
+        Log::error("FieldFoxDriver: Calibration state load timed out or failed.");
+        return false;
+    }
+
+    // Phase 1 diagnostics: query and log trace settings and errors
+    std::string catResponse, formResponse, errResponse;
+    m_session.query("CALC:PAR:CAT?", catResponse);
+    m_session.query("CALC:FORM?", formResponse);
+    m_session.query("SYST:ERR?", errResponse);
+
+    Log::info("[Diagnostics] Calibration loaded. Trace catalog: " + catResponse);
+    Log::info("[Diagnostics] Active trace format: " + formResponse);
+    Log::info("[Diagnostics] Instrument Error queue: " + errResponse);
+
+    return true;
+}
+
 bool FieldFoxDriver::configure(const SweepConfig& config) {
     if (!m_isConnected) {
         Log::error("FieldFoxDriver: Cannot configure VNA, not connected.");
@@ -59,21 +98,21 @@ bool FieldFoxDriver::configure(const SweepConfig& config) {
     // 2. Set single sweep mode
     if (!m_session.write("INIT:CONT OFF")) return false;
 
-    // 3. Set trigger source to bus (software trigger)
-    if (!m_session.write("TRIG:SOUR BUS")) return false;
+    // 3. Set trigger source to Internal (since BUS is unsupported/fails in VNA mode)
+    if (!m_session.write("TRIG:SOUR INT")) return false;
 
     // 4. Set frequency parameters
-    if (!m_session.write("SENS:FREQ:STAR " + std::to_string(config.startFreq_Hz))) return false;
-    if (!m_session.write("SENS:FREQ:STOP " + std::to_string(config.stopFreq_Hz))) return false;
+    if (!m_session.write("SENS1:FREQ:STAR " + std::to_string(config.startFreq_Hz))) return false;
+    if (!m_session.write("SENS1:FREQ:STOP " + std::to_string(config.stopFreq_Hz))) return false;
 
     // 5. Set number of sweep points
-    if (!m_session.write("SENS:SWE:POIN " + std::to_string(config.numPoints))) return false;
+    if (!m_session.write("SENS1:SWE:POIN " + std::to_string(config.numPoints))) return false;
 
     // 6. Set IF Bandwidth
-    if (!m_session.write("SENS:BWID " + std::to_string(config.ifbw_Hz))) return false;
+    if (!m_session.write("SENS1:BWID " + std::to_string(config.ifbw_Hz))) return false;
 
     // 7. Set source power level
-    if (!m_session.write("SOUR:POW " + std::to_string(config.power_dBm))) return false;
+    if (!m_session.write("SOUR1:POW " + std::to_string(config.power_dBm))) return false;
 
     // 8. Configure measurement traces (S-parameters)
     // FieldFox allows configuring trace count and assigning S-parameters to each
@@ -83,7 +122,7 @@ bool FieldFoxDriver::configure(const SweepConfig& config) {
         return false;
     }
 
-    if (!m_session.write("CALC:PAR:COUN " + std::to_string(numTraces))) return false;
+    if (!m_session.write("CALC1:PAR:COUN " + std::to_string(numTraces))) return false;
 
     for (size_t i = 0; i < numTraces; ++i) {
         std::string sparamStr;
@@ -98,7 +137,7 @@ bool FieldFoxDriver::configure(const SweepConfig& config) {
         }
 
         std::string traceNum = std::to_string(i + 1);
-        if (!m_session.write("CALC:PAR" + traceNum + ":DEF " + sparamStr)) {
+        if (!m_session.write("CALC1:PAR" + traceNum + ":DEF " + sparamStr)) {
             Log::error("FieldFoxDriver: Failed to define trace " + traceNum + " as " + sparamStr);
             return false;
         }
@@ -165,14 +204,14 @@ std::vector<SParamData> FieldFoxDriver::readSParameters() {
         std::string traceNum = std::to_string(i + 1);
 
         // Select the active trace
-        if (!m_session.write("CALC:PAR" + traceNum + ":SEL")) {
+        if (!m_session.write("CALC1:PAR" + traceNum + ":SEL")) {
             Log::error("FieldFoxDriver: Failed to select trace " + traceNum);
             return {};
         }
 
         // Query complex S-parameter data (Real + Imaginary pairs)
         std::string rawData;
-        if (!m_session.query("CALC:DATA? SDATA", rawData, 65536)) {
+        if (!m_session.query("CALC1:DATA:SDAT?", rawData, 65536)) {
             Log::error("FieldFoxDriver: Failed to read complex data for trace " + traceNum);
             return {};
         }

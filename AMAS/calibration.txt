@@ -1,0 +1,25 @@
+detail 
+calchamber 8-12 GHz
+calchamber 12-18 GHz
+calchamber 18-26 P5GHz
+ 
+ calculation - no of point variable
+ 8-12Ghz - 401
+ 12 -18ghz - 601
+ 18 - 26.5ghz - 851
+ 26.5-40ghz - 136
+
+
+S11
+1 Calchamber_s11_1_18ghz.sta
+2 Calchamber_s11_18_26ghz.sta
+3 Calchamber_s11_26_40ghz.sta
+
+
+Gain, S21, Radiation 2D, 3D, Polarization
+1 Calchamber1_18ghz.sta
+2 Calchamber12_18ghz.sta
+3 Calchamber18_26p.5ghz.sta
+4 Calchamber26p5g_40ghz.sta
+5 Calchamber8_12ghz.sta
+

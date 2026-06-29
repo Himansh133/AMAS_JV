@@ -45,7 +45,7 @@ bool TAP3001Driver::connect(const std::string& port) {
         return false;
     }
 
-    // Configure Port Parameters (9600 Baud, 8N1)
+    // Configure Port Parameters (19200 Baud, 8N1)
     DCB dcbSerialParams = {0};
     dcbSerialParams.DCBlength = sizeof(dcbSerialParams);
 
@@ -60,6 +60,22 @@ bool TAP3001Driver::connect(const std::string& port) {
     dcbSerialParams.ByteSize = 8;
     dcbSerialParams.StopBits = ONESTOPBIT;
     dcbSerialParams.Parity = NOPARITY;
+
+    // Disable all hardware/software flow control (critical for TAP-3001)
+    dcbSerialParams.fOutxCtsFlow = FALSE;
+    dcbSerialParams.fOutxDsrFlow = FALSE;
+    dcbSerialParams.fDsrSensitivity = FALSE;
+    dcbSerialParams.fTXContinueOnXoff = FALSE;
+    dcbSerialParams.fOutX = FALSE;
+    dcbSerialParams.fInX = FALSE;
+    dcbSerialParams.fErrorChar = FALSE;
+    dcbSerialParams.fNull = FALSE;
+    dcbSerialParams.fAbortOnError = FALSE;
+
+    // Enable binary mode for raw Modbus RTU byte stream
+    dcbSerialParams.fBinary = TRUE;
+
+    // Enable DTR and RTS lines automatically
     dcbSerialParams.fDtrControl = DTR_CONTROL_ENABLE;
     dcbSerialParams.fRtsControl = RTS_CONTROL_ENABLE;
 
@@ -70,10 +86,10 @@ bool TAP3001Driver::connect(const std::string& port) {
         return false;
     }
 
-    // Configure timeouts: Non-blocking with 500ms constant total timeout
+    // Configure timeouts: Non-blocking with 3000ms constant total timeout (matches Python)
     COMMTIMEOUTS timeouts = {0};
     timeouts.ReadIntervalTimeout = 50;
-    timeouts.ReadTotalTimeoutConstant = 500;
+    timeouts.ReadTotalTimeoutConstant = 3000;
     timeouts.ReadTotalTimeoutMultiplier = 10;
     timeouts.WriteTotalTimeoutConstant = 50;
     timeouts.WriteTotalTimeoutMultiplier = 10;
@@ -124,7 +140,7 @@ bool TAP3001Driver::moveTo(float angle_deg) {
     int16_t writeVal = (int16_t)(angle_deg * 10.0f);
     
     Log::info("TAP3001Driver: Moving Azimuth to " + std::to_string(angle_deg) + " deg (Register Value: " + std::to_string(writeVal) + ")");
-    return writeReg(3, writeVal); // Address 3 is AZ target/current
+    return writeReg(2, writeVal); // Address 2 is AZREF (write target), address 3 is AZCUR (read feedback)
 }
 
 float TAP3001Driver::getCurrentAngle() {
@@ -178,7 +194,7 @@ void TAP3001Driver::emergencyStop() {
     float current = getCurrentAngle();
     m_targetAngle = current;
     int16_t writeVal = (int16_t)(current * 10.0f);
-    writeReg(3, writeVal); // Set AZ target to current AZ position immediately
+    writeReg(2, writeVal); // Set AZREF (address 2) to current AZ position immediately
 }
 
 bool TAP3001Driver::isConnected() const {
@@ -189,7 +205,7 @@ bool TAP3001Driver::isConnected() const {
 float TAP3001Driver::getElevationAngle() {
     if (!m_connected) return 0.0f;
     int16_t elVal = 0;
-    if (readRegs(10, 1, &elVal)) { // Address 10 is EL target/current
+    if (readRegs(11, 1, &elVal)) { // Address 11 is ELCUR (read feedback), address 10 is ELREF (write target)
         return elVal / 10.0f;
     }
     return 0.0f;
@@ -198,7 +214,7 @@ float TAP3001Driver::getElevationAngle() {
 float TAP3001Driver::getPolarizationAngle() {
     if (!m_connected) return 0.0f;
     int16_t plVal = 0;
-    if (readRegs(18, 1, &plVal)) { // Address 18 is PL target/current
+    if (readRegs(19, 1, &plVal)) { // Address 19 is PLCUR (read feedback), address 18 is PLREF (write target)
         return plVal / 10.0f;
     }
     return 0.0f;
@@ -241,26 +257,30 @@ uint16_t TAP3001Driver::calculateCRC(const uint8_t* buf, int len) const {
     return crc;
 }
 
-// Write Modbus Register (Function Code 06)
+// Write Modbus Register (Function Code 16 / 0x10 - Write Multiple Registers)
+// TAP-3001 requires FC 16 for write operations; FC 06 is not supported.
 bool TAP3001Driver::writeReg(uint16_t address, int16_t val) {
     if (m_hSerial == INVALID_HANDLE_VALUE) return false;
 
-    uint8_t frame[8];
+    uint8_t frame[11];
     frame[0] = m_slaveId;
-    frame[1] = 0x06;
+    frame[1] = 0x10;                  // Function Code 16 (0x10) - Write Multiple Registers
     frame[2] = (address >> 8) & 0xFF;
     frame[3] = address & 0xFF;
-    frame[4] = (val >> 8) & 0xFF;
-    frame[5] = val & 0xFF;
+    frame[4] = 0x00;                  // Number of registers high
+    frame[5] = 0x01;                  // Number of registers low (1 register)
+    frame[6] = 0x02;                  // Byte count (2 bytes)
+    frame[7] = (val >> 8) & 0xFF;     // Data high
+    frame[8] = val & 0xFF;            // Data low
 
-    uint16_t crc = calculateCRC(frame, 6);
-    frame[6] = crc & 0xFF;
-    frame[7] = (crc >> 8) & 0xFF;
+    uint16_t crc = calculateCRC(frame, 9);
+    frame[9] = crc & 0xFF;
+    frame[10] = (crc >> 8) & 0xFF;
 
     PurgeComm(m_hSerial, PURGE_RXCLEAR | PURGE_TXCLEAR);
 
     DWORD bytesWritten = 0;
-    if (!WriteFile(m_hSerial, frame, 8, &bytesWritten, NULL) || bytesWritten != 8) {
+    if (!WriteFile(m_hSerial, frame, 11, &bytesWritten, NULL) || bytesWritten != 11) {
         Log::error("TAP3001Driver: Modbus Write Register - Failed to write frame to port.");
         return false;
     }

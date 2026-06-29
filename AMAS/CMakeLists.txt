@@ -60,6 +60,7 @@ include_directories(
     src/core/positioner
     src/core/log
     src/core/config
+    src/core/control
 )
 
 # Source files list for the core library and executable
@@ -80,6 +81,17 @@ set(SOURCES
     src/core/positioner/MockPositionerDriver.cpp
     src/core/positioner/TAP3001Driver.h
     src/core/positioner/TAP3001Driver.cpp
+    # Config and Session
+    src/core/config/MeasurementProfile.h
+    src/core/config/MeasurementSession.h
+    # Processors & Logging
+    src/core/vna/MeasurementProcessor.h
+    src/core/vna/MeasurementProcessor.cpp
+    src/core/log/DataLogger.h
+    src/core/log/DataLogger.cpp
+    # Controllers
+    src/core/control/MeasurementController.h
+    src/core/control/MeasurementController.cpp
     # Logging
     src/core/log/Logger.h
     src/core/log/Logger.cpp
@@ -91,6 +103,23 @@ target_link_libraries(AMAS PRIVATE
     Qt6::Core
     Qt6::Widgets
     Qt6::SerialPort
+    VISA::VISA
+)
+
+# VNA Connection Test Executable
+set(VNA_TEST_SOURCES
+    src/vna_connection_test.cpp
+    src/core/visa/VISASession.h
+    src/core/visa/VISASession.cpp
+    src/core/vna/IVnaDriver.h
+    src/core/vna/FieldFoxDriver.h
+    src/core/vna/FieldFoxDriver.cpp
+    src/core/log/Logger.h
+    src/core/log/Logger.cpp
+)
+add_executable(vna_connection_test ${VNA_TEST_SOURCES})
+target_link_libraries(vna_connection_test PRIVATE
+    Qt6::Core
     VISA::VISA
 )
 

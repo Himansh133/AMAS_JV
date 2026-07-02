@@ -10,7 +10,7 @@ set(CMAKE_AUTORCC ON)
 set(CMAKE_AUTOUIC ON)
 
 # Find Qt 6 libraries
-find_package(Qt6 REQUIRED COMPONENTS Core Widgets SerialPort)
+find_package(Qt6 COMPONENTS Core Widgets SerialPort)
 
 # Auto-detect target bitness and choose VISA defaults
 if(CMAKE_SIZEOF_VOID_P EQUAL 4)
@@ -61,6 +61,13 @@ include_directories(
     src/core/log
     src/core/config
     src/core/control
+    src/measurement
+    src/logger
+    src/reports
+    src/controllers
+    src/gui
+    src/gui/theme
+    src/gui/widgets
 )
 
 # Source files list for the core library and executable
@@ -84,27 +91,88 @@ set(SOURCES
     # Config and Session
     src/core/config/MeasurementProfile.h
     src/core/config/MeasurementSession.h
-    # Processors & Logging
-    src/core/vna/MeasurementProcessor.h
-    src/core/vna/MeasurementProcessor.cpp
-    src/core/log/DataLogger.h
-    src/core/log/DataLogger.cpp
-    # Controllers
-    src/core/control/MeasurementController.h
-    src/core/control/MeasurementController.cpp
     # Logging
     src/core/log/Logger.h
     src/core/log/Logger.cpp
+    # Expanded Backend Architecture
+    src/measurement/BandConfiguration.h
+    src/measurement/BandConfiguration.cpp
+    src/measurement/CalibrationManager.h
+    src/measurement/CalibrationManager.cpp
+    src/measurement/MeasurementProfile.h
+    src/measurement/MeasurementProfile.cpp
+    src/measurement/MeasurementSession.h
+    src/measurement/MeasurementSession.cpp
+    src/measurement/MeasurementProcessor.h
+    src/measurement/MeasurementProcessor.cpp
+    src/logger/DataLogger.h
+    src/logger/DataLogger.cpp
+    src/reports/ReportGenerator.h
+    src/reports/ReportGenerator.cpp
+    src/controllers/MeasurementController.h
+    src/controllers/MeasurementController.cpp
+    # GUI Skeleton
+    src/gui/MainWindow.h
+    src/gui/MainWindow.cpp
+    src/gui/theme/Colors.h
+    src/gui/theme/ThemeManager.h
+    src/gui/theme/ThemeManager.cpp
+    src/gui/DashboardPage.h
+    src/gui/DashboardPage.cpp
+    src/gui/DevicesPage.h
+    src/gui/DevicesPage.cpp
+    src/gui/MeasurementSetupPage.h
+    src/gui/MeasurementSetupPage.cpp
+    src/gui/MeasurementProgressPage.h
+    src/gui/MeasurementProgressPage.cpp
+    src/gui/ResultsPage.h
+    src/gui/ResultsPage.cpp
+    src/gui/ProfileManagerPage.h
+    src/gui/ProfileManagerPage.cpp
+    src/gui/framework/ActionManager.h
+    src/gui/framework/ActionManager.cpp
+    src/gui/framework/CommandManager.h
+    src/gui/framework/CommandManager.cpp
+    src/gui/framework/SettingsManager.h
+    src/gui/framework/SettingsManager.cpp
+    src/gui/framework/WindowStateManager.h
+    src/gui/framework/WindowStateManager.cpp
+    src/gui/presentation/MeasurementPresenter.h
+    src/gui/presentation/MeasurementPresenter.cpp
+    src/gui/presentation/DashboardPresenter.h
+    src/gui/presentation/DashboardPresenter.cpp
+    src/gui/presentation/DevicesPresenter.h
+    src/gui/presentation/DevicesPresenter.cpp
+    src/gui/presentation/SetupPresenter.h
+    src/gui/presentation/SetupPresenter.cpp
+    src/gui/presentation/ProgressPresenter.h
+    src/gui/presentation/ProgressPresenter.cpp
+    src/gui/presentation/ResultsPresenter.h
+    src/gui/presentation/ResultsPresenter.cpp
+    src/gui/presentation/ProfilePresenter.h
+    src/gui/presentation/ProfilePresenter.cpp
+    src/gui/widgets/DeviceStatusCard.h
+    src/gui/widgets/DeviceStatusCard.cpp
+    src/gui/widgets/MeasProfileCard.h
+    src/gui/widgets/MeasProfileCard.cpp
+    src/gui/widgets/QuickActionButton.h
+    src/gui/widgets/QuickActionButton.cpp
 )
 
-# Main Executable
-add_executable(AMAS ${SOURCES})
-target_link_libraries(AMAS PRIVATE
-    Qt6::Core
-    Qt6::Widgets
-    Qt6::SerialPort
-    VISA::VISA
-)
+
+# Main Executable (Requires Qt6)
+if(Qt6_FOUND)
+    message(STATUS "Qt6 found. Main GUI target 'AMAS' will be built.")
+    add_executable(AMAS ${SOURCES})
+    target_link_libraries(AMAS PRIVATE
+        Qt6::Core
+        Qt6::Widgets
+        Qt6::SerialPort
+        VISA::VISA
+    )
+else()
+    message(STATUS "Qt6 not found. Skipping build of main GUI target 'AMAS'. Only CLI tools and tests will be built.")
+endif()
 
 # VNA Connection Test Executable
 set(VNA_TEST_SOURCES
@@ -119,7 +187,6 @@ set(VNA_TEST_SOURCES
 )
 add_executable(vna_connection_test ${VNA_TEST_SOURCES})
 target_link_libraries(vna_connection_test PRIVATE
-    Qt6::Core
     VISA::VISA
 )
 
@@ -141,19 +208,27 @@ if(BUILD_TESTING)
     set(TEST_SOURCES
         tests/test_vna_driver.cpp
         tests/test_positioner_driver.cpp
+        tests/test_backend_modules.cpp
         # Sources under test
         src/core/visa/VISASession.cpp
         src/core/vna/FieldFoxDriver.cpp
         src/core/vna/MockVnaDriver.cpp
         src/core/positioner/MockPositionerDriver.cpp
         src/core/log/Logger.cpp
+        # Backend modules
+        src/measurement/BandConfiguration.cpp
+        src/measurement/CalibrationManager.cpp
+        src/measurement/MeasurementProfile.cpp
+        src/measurement/MeasurementSession.cpp
+        src/measurement/MeasurementProcessor.cpp
+        src/logger/DataLogger.cpp
+        src/reports/ReportGenerator.cpp
+        src/controllers/MeasurementController.cpp
     )
     
     add_executable(AMAS_tests ${TEST_SOURCES})
     target_link_libraries(AMAS_tests PRIVATE
         gtest_main
-        Qt6::Core
-        Qt6::SerialPort
         VISA::VISA
     )
     

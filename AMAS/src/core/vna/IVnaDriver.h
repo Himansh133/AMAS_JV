@@ -20,6 +20,7 @@ public:
     
     virtual bool connect(const std::string& resource) = 0;
     virtual void disconnect() = 0;
+    virtual bool loadCalibrationState(const std::string& filename) { return true; }
     virtual bool configure(const SweepConfig& config) = 0;
     virtual bool triggerSweep() = 0;
     virtual std::vector<SParamData> readSParameters() = 0;

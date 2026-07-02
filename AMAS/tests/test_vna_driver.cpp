@@ -55,7 +55,7 @@ TEST(MockVnaDriverTest, ConnectionFlow) {
     
     EXPECT_TRUE(vna.connect("GPIB0::18::INSTR"));
     EXPECT_TRUE(vna.isConnected());
-    EXPECT_NE(vna.getIdnString().find("Mock"), std::string::npos);
+    EXPECT_NE(vna.getIdnString().find("MOCK"), std::string::npos);
     
     vna.disconnect();
     EXPECT_FALSE(vna.isConnected());

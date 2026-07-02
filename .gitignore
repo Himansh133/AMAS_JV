@@ -1,57 +1,111 @@
-# Prerequisites
+# -----------------------------
+# Dependencies
+# -----------------------------
 *.d
 
-# Compiled Object files
-*.slo
-*.lo
+# -----------------------------
+# Object files
+# -----------------------------
 *.o
 *.obj
+*.lo
+*.slo
 
-# Precompiled Headers
+# -----------------------------
+# Precompiled headers
+# -----------------------------
 *.gch
 *.pch
 
-# Compiled Dynamic libraries
-*.so
-*.dylib
-*.dll
-
-# Fortran module files
-*.mod
-*.smod
-
-# Compiled Static libraries
-*.lai
-*.la
+# -----------------------------
+# Libraries
+# -----------------------------
 *.a
+*.la
+*.lai
 *.lib
+*.so
+*.dll
+*.dylib
 
+# -----------------------------
 # Executables
+# -----------------------------
 *.exe
 *.out
 *.app
 
-# CMake build outputs
-/build/
-/build_msvc/
-CMakeFiles/
-CMakeCache.txt
+# -----------------------------
+# CMake
+# -----------------------------
+/AMAS/build/
+/AMAS/build_msvc/
+
+**/CMakeFiles/
+**/CMakeCache.txt
+**/cmake_install.cmake
+**/CTestTestfile.cmake
+**/Testing/
+**/compile_commands.json
+
 CMakePresets.json.user
 CMakeLists.txt.user
 
-# IDE-specific files
+# -----------------------------
+# IDE
+# -----------------------------
 .vs/
 .vscode/
 .idea/
 .gemini/
+
 *.suo
 *.user
 *.sdf
 *.opensdf
 
-# Local/temporary files
+# -----------------------------
+# Logs / Temp
+# -----------------------------
 *.log
 *.tmp
-visa_test_msvc.exe
-visa_test.exe
+
+# -----------------------------
+# Python
+# -----------------------------
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# -----------------------------
+# Diagnostic binaries
+# -----------------------------
 find_visa.exe
+visa_test.exe
+visa_test_msvc.exe
+modbus_scanner.exe
+modbus_test_diagnostic.exe
+com_diagnostic.exe
+p_test.exe
+
+# -----------------------------
+# Diagnostic object files
+# -----------------------------
+com_diagnostic.obj
+modbus_test_diagnostic.obj
+p_test.obj
+positioner_test.obj
+visa_test.obj
+
+# -----------------------------
+# Generated measurement data
+# -----------------------------
+measurement_results_*.csv
+measurement_results_*.png
+
+# -----------------------------
+# Misc
+# -----------------------------
+*.bak
+*.cache

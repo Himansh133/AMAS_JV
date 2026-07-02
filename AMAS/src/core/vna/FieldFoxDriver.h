@@ -15,6 +15,7 @@ public:
     // IVnaDriver interface implementation
     bool connect(const std::string& resource) override;
     void disconnect() override;
+    bool loadCalibrationState(const std::string& filename) override;
     bool configure(const SweepConfig& config) override;
     bool triggerSweep() override;
     std::vector<SParamData> readSParameters() override;

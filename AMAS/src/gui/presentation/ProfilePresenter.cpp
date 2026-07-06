@@ -7,48 +7,67 @@ ProfilePresenter::ProfilePresenter(MeasurementPresenter *parent)
     : QObject(parent)
     , m_parent(parent)
 {
+    // Synchronize profiles list when changes occur in controller
+    connect(m_parent->controller().get(), &MeasurementController::profileLoaded, this, [this]() {
+        emit profilesChanged();
+    });
+    connect(m_parent->controller().get(), &MeasurementController::profileSaved, this, [this]() {
+        emit profilesChanged();
+    });
+    connect(m_parent->controller().get(), &MeasurementController::profileDeleted, this, [this]() {
+        emit profilesChanged();
+    });
 }
 
 QStringList ProfilePresenter::getProfiles() const {
-    return {
-        "Horn 8-12 GHz",
-        "Patch 12-18 GHz",
-        "PCB Antenna",
-        "Waveguide"
-    };
+    QStringList list;
+    for (const auto& p : m_parent->controller()->getProfiles()) {
+        list.append(QString::fromStdString(p.profileName));
+    }
+    return list;
 }
 
 bool ProfilePresenter::loadProfile(const QString &profileName, MeasurementProfile &outProfile) {
-    outProfile.profileName = profileName.toStdString();
-    outProfile.calibrationFile = "calchamber8_12ghz.sta";
-    outProfile.sweepPoints = 401;
-    outProfile.outputPowerDbm = -10.0;
-    outProfile.ifBandwidthHz = 1000.0;
-
-    if (profileName.contains("Horn")) {
-        outProfile.measurementType = "Gain";
-        outProfile.startFrequencyHz = 8.0e9;
-        outProfile.stopFrequencyHz = 12.0e9;
-        outProfile.positioner.usePositioner = true;
-        outProfile.positioner.startAngleDeg = 0.0f;
-        outProfile.positioner.stopAngleDeg = 180.0f;
-        outProfile.positioner.stepAngleDeg = 10.0f;
-    } else {
-        outProfile.measurementType = "S11";
-        outProfile.startFrequencyHz = 12.0e9;
-        outProfile.stopFrequencyHz = 18.0e9;
-        outProfile.positioner.usePositioner = false;
+    for (const auto& p : m_parent->controller()->getProfiles()) {
+        if (p.profileName == profileName.toStdString()) {
+            outProfile = p;
+            emit profileLoaded(profileName);
+            return true;
+        }
     }
-
-    emit profileLoaded(profileName);
-    return true;
+    return false;
 }
 
 bool ProfilePresenter::saveProfile(const QString &profileName, const MeasurementProfile &profile) {
-    m_parent->setCurrentProfile(profile);
-    emit profileSaved(profileName);
-    emit profilesChanged();
-    return true;
+    MeasurementProfile p = profile;
+    p.profileName = profileName.toStdString();
+    bool success = m_parent->controller()->saveProfile(p);
+    if (success) {
+        emit profileSaved(profileName);
+        emit profilesChanged();
+    }
+    return success;
+}
+
+bool ProfilePresenter::deleteProfile(const QString &profileName) {
+    bool success = m_parent->controller()->deleteProfile(profileName.toStdString());
+    if (success) {
+        emit profilesChanged();
+    }
+    return success;
+}
+
+bool ProfilePresenter::duplicateProfile(const QString &sourceName, const QString &destName) {
+    MeasurementProfile source;
+    if (loadProfile(sourceName, source)) {
+        source.profileName = destName.toStdString();
+        return saveProfile(destName, source);
+    }
+    return false;
+}
+
+void ProfilePresenter::setActiveProfile(const MeasurementProfile &profile) {
+    m_parent->controller()->setActiveProfile(profile);
 }
 
 } // namespace AMAS

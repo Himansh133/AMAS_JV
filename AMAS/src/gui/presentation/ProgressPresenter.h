@@ -23,11 +23,22 @@ public:
     void stopMeasurement();
     void abortMeasurement();
 
+    // Query parameters
+    float getCurrentAngle() const;
+    double getCurrentFreq() const;
+    double getEstimatedRemainingTime() const;
+    QString getStatus() const;
+    int getProgress() const;
+
 signals:
     void measurementStarted();
     void measurementProgressUpdated(float progressPercent, const QString &statusMessage);
     void measurementFinished(bool success);
     void logMessageAdded(const QString &msg);
+
+private slots:
+    void onProgressUpdated(int progress);
+    void onStatusChanged();
 
 private:
     MeasurementPresenter *m_parent;

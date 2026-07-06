@@ -10,9 +10,8 @@ SetupPresenter::SetupPresenter(MeasurementPresenter *parent)
 }
 
 void SetupPresenter::updateProfile(const MeasurementProfile &profile) {
-    m_parent->setCurrentProfile(profile);
+    m_parent->controller()->setActiveProfile(profile);
     emit profileUpdated(profile);
-    emit m_parent->currentProfileChanged(QString::fromStdString(profile.profileName));
 }
 
 MeasurementProfile SetupPresenter::getProfile() const {

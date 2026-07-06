@@ -22,6 +22,8 @@ public:
     bool isPositionerConnected() const;
     QString vnaResource() const;
     QString positionerPort() const;
+    QString vnaDeviceName() const;
+    QString positionerDeviceName() const;
 
 signals:
     void connectionStatusChanged(bool vnaConnected, bool posConnected);

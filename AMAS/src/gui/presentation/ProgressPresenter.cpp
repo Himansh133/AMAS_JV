@@ -9,6 +9,16 @@ ProgressPresenter::ProgressPresenter(MeasurementPresenter *parent)
     , m_parent(parent)
     , m_workerThread(nullptr)
 {
+    // Subscribe to controller signals
+    connect(m_parent->controller().get(), &MeasurementController::measurementStarted, this, &ProgressPresenter::measurementStarted);
+    connect(m_parent->controller().get(), &MeasurementController::measurementFinished, this, [this]() {
+        emit measurementFinished(true);
+    });
+    connect(m_parent->controller().get(), &MeasurementController::measurementCancelled, this, [this]() {
+        emit measurementFinished(false);
+    });
+    connect(m_parent->controller().get(), &MeasurementController::measurementProgressUpdated, this, &ProgressPresenter::onProgressUpdated);
+    connect(m_parent->controller().get(), &MeasurementController::systemStatusChanged, this, &ProgressPresenter::onStatusChanged);
 }
 
 ProgressPresenter::~ProgressPresenter() {
@@ -70,6 +80,34 @@ void ProgressPresenter::stopMeasurement() {
 void ProgressPresenter::abortMeasurement() {
     m_parent->controller()->requestCancellation();
     emit logMessageAdded(tr("[%1] Coordinated sweep aborted immediately.").arg(QTime::currentTime().toString("hh:mm:ss")));
+}
+
+float ProgressPresenter::getCurrentAngle() const {
+    return m_parent->controller()->getCurrentAngle();
+}
+
+double ProgressPresenter::getCurrentFreq() const {
+    return m_parent->controller()->getCurrentFrequency();
+}
+
+double ProgressPresenter::getEstimatedRemainingTime() const {
+    return m_parent->controller()->getEstimatedRemainingTime();
+}
+
+QString ProgressPresenter::getStatus() const {
+    return QString::fromStdString(m_parent->controller()->getMeasurementStatus());
+}
+
+int ProgressPresenter::getProgress() const {
+    return m_parent->controller()->getMeasurementProgress();
+}
+
+void ProgressPresenter::onProgressUpdated(int progress) {
+    emit measurementProgressUpdated(static_cast<float>(progress), getStatus());
+}
+
+void ProgressPresenter::onStatusChanged() {
+    emit measurementProgressUpdated(static_cast<float>(getProgress()), getStatus());
 }
 
 } // namespace AMAS

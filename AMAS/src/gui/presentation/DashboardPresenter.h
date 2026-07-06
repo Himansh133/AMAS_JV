@@ -19,6 +19,8 @@ public:
     bool isSystemReady() const;
     bool isVnaConnected() const;
     bool isPositionerConnected() const;
+    QString lastMeasurement() const;
+    QString applicationVersion() const;
 
 signals:
     void dashboardUpdated();

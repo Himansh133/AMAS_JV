@@ -45,11 +45,19 @@ bool DevicesPresenter::isPositionerConnected() const {
 }
 
 QString DevicesPresenter::vnaResource() const {
-    return m_vnaResource;
+    return m_vnaResource.isEmpty() ? QString::fromStdString(m_parent->controller()->getVnaResource()) : m_vnaResource;
 }
 
 QString DevicesPresenter::positionerPort() const {
-    return m_posPort;
+    return m_posPort.isEmpty() ? QString::fromStdString(m_parent->controller()->getPositionerPort()) : m_posPort;
+}
+
+QString DevicesPresenter::vnaDeviceName() const {
+    return QString::fromStdString(m_parent->controller()->getVnaIdn());
+}
+
+QString DevicesPresenter::positionerDeviceName() const {
+    return QString::fromStdString(m_parent->controller()->getPositionerIdn());
 }
 
 } // namespace AMAS

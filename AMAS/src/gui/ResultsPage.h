@@ -14,6 +14,7 @@
 namespace AMAS {
 
 class ResultsPresenter;
+struct MeasurementSession;
 
 class ResultsPage : public QWidget {
     Q_OBJECT
@@ -33,6 +34,7 @@ private:
     QWidget* createReportTab(QWidget *parent);
 
     void createBottomStatusBar(QHBoxLayout *layout);
+    void loadSessionToUI(const MeasurementSession &session);
 
     // Sidebar widgets
     QTreeWidget *m_treeBrowser;

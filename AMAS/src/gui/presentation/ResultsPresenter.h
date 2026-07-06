@@ -16,6 +16,8 @@ public:
 
     QStringList getCompletedSessions() const;
     bool loadSession(const QString &sessionFolder, MeasurementSession &outSession);
+    bool loadLatestSession(MeasurementSession &outSession);
+    bool hasLatestSession() const;
 
 signals:
     void sessionLoaded(const QString &sessionName);

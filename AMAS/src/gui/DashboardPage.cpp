@@ -35,10 +35,6 @@ DashboardPage::DashboardPage(DashboardPresenter *presenter, QWidget *parent)
     topRowLayout->addWidget(m_cardProfile);
     mainLayout->addLayout(topRowLayout);
 
-    // Initial load and signal connection
-    updateDashboardState();
-    connect(m_presenter, &DashboardPresenter::dashboardUpdated, this, &DashboardPage::updateDashboardState);
-
     // 2. Assemble Quick Actions Row (Second Row)
     setupQuickActions();
     auto *grpActions = new QGroupBox(tr("Quick Actions"), this);
@@ -67,6 +63,10 @@ DashboardPage::DashboardPage(DashboardPresenter *presenter, QWidget *parent)
     logLayout->setContentsMargins(12, 16, 12, 12);
     logLayout->addWidget(m_logList);
     mainLayout->addWidget(grpLog);
+
+    // Initial load and signal connection
+    updateDashboardState();
+    connect(m_presenter, &DashboardPresenter::dashboardUpdated, this, &DashboardPage::updateDashboardState);
 }
 
 void DashboardPage::setupTopRow() {
@@ -88,7 +88,15 @@ void DashboardPage::setupTopRow() {
 void DashboardPage::updateDashboardState() {
     m_cardVna->setConnectionStatus(m_presenter->isVnaConnected(), m_presenter->isVnaConnected() ? tr("Connected") : tr("Disconnected"));
     m_cardPositioner->setConnectionStatus(m_presenter->isPositionerConnected(), m_presenter->isPositionerConnected() ? tr("Connected") : tr("Disconnected"));
-    m_cardProfile->setProfile(m_presenter->currentProfileName(), m_presenter->isSystemReady() ? tr("Ready") : tr("Not Ready"), 401);
+    m_cardProfile->setProfile(m_presenter->currentProfileName(), m_presenter->calibrationStatus(), 401);
+
+    m_logList->clear();
+    m_logList->addItem(tr("Application Version: %1").arg(m_presenter->applicationVersion()));
+    m_logList->addItem(tr("System Ready Status: %1").arg(m_presenter->isSystemReady() ? tr("Ready") : tr("Not Ready")));
+    m_logList->addItem(tr("Measurement State: %1").arg(m_presenter->systemState()));
+    m_logList->addItem(tr("Current Profile: %1").arg(m_presenter->currentProfileName()));
+    m_logList->addItem(tr("Calibration Status: %1").arg(m_presenter->calibrationStatus()));
+    m_logList->addItem(tr("Last Measurement: %1").arg(m_presenter->lastMeasurement()));
 }
 
 void DashboardPage::setupQuickActions() {

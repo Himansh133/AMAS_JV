@@ -1,5 +1,6 @@
 #include "ResultsPage.h"
 #include "presentation/ResultsPresenter.h"
+#include "measurement/MeasurementSession.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QGridLayout>
@@ -69,6 +70,14 @@ ResultsPage::ResultsPage(ResultsPresenter *presenter, QWidget *parent)
     auto *statusBarLayout = new QHBoxLayout();
     createBottomStatusBar(statusBarLayout);
     mainLayout->addLayout(statusBarLayout);
+
+    // Load initial/latest session if present
+    if (m_presenter->hasLatestSession()) {
+        MeasurementSession session;
+        if (m_presenter->loadLatestSession(session)) {
+            loadSessionToUI(session);
+        }
+    }
 }
 
 ResultsPage::~ResultsPage() {
@@ -396,39 +405,43 @@ void ResultsPage::onSessionSelected(QTreeWidgetItem *item, int column) {
 
     MeasurementSession session;
     if (m_presenter->loadSession(sessionFolder, session)) {
-        // Update Top Summary
-        m_lblSumName->setText(QString::fromStdString(session.sessionName));
-        m_lblSumType->setText(QString::fromStdString(session.measurementType));
-        m_lblSumBand->setText(QString::fromStdString(session.bandName));
-        m_lblSumCal->setText(QString::fromStdString(session.calibrationFile));
-        m_lblSumDate->setText(QString::fromStdString(session.timestamp));
-        m_lblSumOperator->setText(QString::fromStdString(session.metadata.operatorName));
-        m_lblSumStatus->setText(tr("Loaded"));
-        m_lblSumStatus->setStyleSheet("color: #4CAF50; font-weight: bold;");
+        loadSessionToUI(session);
+    }
+}
 
-        // Update Bottom Status Bar
-        m_statusLoaded->setText(tr("Loaded: %1").arg(QString::fromStdString(session.sessionName)));
-        m_statusUpdate->setText(tr("Updated: %1").arg(QString::fromStdString(session.timestamp)));
+void ResultsPage::loadSessionToUI(const MeasurementSession &session) {
+    // Update Top Summary
+    m_lblSumName->setText(QString::fromStdString(session.sessionName));
+    m_lblSumType->setText(QString::fromStdString(session.measurementType));
+    m_lblSumBand->setText(QString::fromStdString(session.bandName));
+    m_lblSumCal->setText(QString::fromStdString(session.calibrationFile));
+    m_lblSumDate->setText(QString::fromStdString(session.timestamp));
+    m_lblSumOperator->setText(QString::fromStdString(session.metadata.operatorName));
+    m_lblSumStatus->setText(tr("Loaded"));
+    m_lblSumStatus->setStyleSheet("color: #4CAF50; font-weight: bold;");
 
-        // Update Data Table
-        m_dataTable->setRowCount(0);
-        m_dataTable->setRowCount(session.results.size());
-        
-        auto setCell = [this](int r, int c, double val) {
-            auto *cellItem = new QTableWidgetItem();
-            cellItem->setData(Qt::DisplayRole, val);
-            cellItem->setTextAlignment(Qt::AlignCenter);
-            m_dataTable->setItem(r, c, cellItem);
-        };
+    // Update Bottom Status Bar
+    m_statusLoaded->setText(tr("Loaded: %1").arg(QString::fromStdString(session.sessionName)));
+    m_statusUpdate->setText(tr("Updated: %1").arg(QString::fromStdString(session.timestamp)));
 
-        for (size_t i = 0; i < session.results.size(); ++i) {
-            const auto &pt = session.results[i];
-            setCell(i, 0, pt.frequencyHz / 1e9);
-            setCell(i, 1, pt.magnitudeDb);
-            setCell(i, 2, pt.phaseDeg);
-            setCell(i, 3, pt.angleDeg);
-            setCell(i, 4, pt.returnLossDb);
-        }
+    // Update Data Table
+    m_dataTable->setRowCount(0);
+    m_dataTable->setRowCount(session.results.size());
+    
+    auto setCell = [this](int r, int c, double val) {
+        auto *cellItem = new QTableWidgetItem();
+        cellItem->setData(Qt::DisplayRole, val);
+        cellItem->setTextAlignment(Qt::AlignCenter);
+        m_dataTable->setItem(r, c, cellItem);
+    };
+
+    for (size_t i = 0; i < session.results.size(); ++i) {
+        const auto &pt = session.results[i];
+        setCell(i, 0, pt.frequencyHz / 1e9);
+        setCell(i, 1, pt.magnitudeDb);
+        setCell(i, 2, pt.phaseDeg);
+        setCell(i, 3, pt.angleDeg);
+        setCell(i, 4, pt.returnLossDb);
     }
 }
 

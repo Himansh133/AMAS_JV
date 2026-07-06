@@ -17,6 +17,9 @@ public:
     QStringList getProfiles() const;
     bool loadProfile(const QString &profileName, MeasurementProfile &outProfile);
     bool saveProfile(const QString &profileName, const MeasurementProfile &profile);
+    bool deleteProfile(const QString &profileName);
+    bool duplicateProfile(const QString &sourceName, const QString &destName);
+    void setActiveProfile(const MeasurementProfile &profile);
 
 signals:
     void profilesChanged();

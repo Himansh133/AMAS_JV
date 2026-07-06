@@ -19,6 +19,19 @@ MeasurementPresenter::MeasurementPresenter(std::shared_ptr<MeasurementController
     , m_profilePresenter(nullptr)
     , m_systemState("Idle")
 {
+    // Establish Controller Signal connections
+    connect(m_controller.get(), &MeasurementController::deviceConnected, this, &MeasurementPresenter::deviceConnectionChanged);
+    connect(m_controller.get(), &MeasurementController::deviceDisconnected, this, &MeasurementPresenter::deviceConnectionChanged);
+    connect(m_controller.get(), &MeasurementController::systemStatusChanged, this, &MeasurementPresenter::stateChanged);
+    connect(m_controller.get(), &MeasurementController::profileLoaded, this, [this]() {
+        m_currentProfile = m_controller->getActiveProfile();
+        m_activeCalibration = QString::fromStdString(m_currentProfile.calibrationFile);
+        emit currentProfileChanged(QString::fromStdString(m_currentProfile.profileName));
+        emit stateChanged();
+    });
+    connect(m_controller.get(), &MeasurementController::profileSaved, this, &MeasurementPresenter::stateChanged);
+    connect(m_controller.get(), &MeasurementController::profileDeleted, this, &MeasurementPresenter::stateChanged);
+    connect(m_controller.get(), &MeasurementController::measurementSessionChanged, this, &MeasurementPresenter::stateChanged);
 }
 
 MeasurementPresenter::~MeasurementPresenter() {

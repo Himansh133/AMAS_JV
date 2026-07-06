@@ -5,6 +5,7 @@
 #include <QGridLayout>
 #include <QFormLayout>
 #include <QStyle>
+#include <QInputDialog>
 #include <cmath>
 
 namespace AMAS {
@@ -85,6 +86,14 @@ MeasurementSetupPage::MeasurementSetupPage(SetupPresenter *presenter, QWidget *p
     connect(m_btnSave, &QPushButton::clicked, this, &MeasurementSetupPage::onSaveClicked);
     connect(m_btnStart, &QPushButton::clicked, this, &MeasurementSetupPage::startRequested);
     connect(m_presenter, &SetupPresenter::profileUpdated, this, &MeasurementSetupPage::onProfileLoaded);
+
+    // Value changes trigger profile updates
+    connect(m_spinStartFreq, QOverload<double>::of(&QDoubleSpinBox::valueChanged), this, &MeasurementSetupPage::onSetupControlChanged);
+    connect(m_spinStopFreq, QOverload<double>::of(&QDoubleSpinBox::valueChanged), this, &MeasurementSetupPage::onSetupControlChanged);
+    connect(m_spinAzStep, QOverload<double>::of(&QDoubleSpinBox::valueChanged), this, &MeasurementSetupPage::onSetupControlChanged);
+    connect(m_comboBand, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &MeasurementSetupPage::onSetupControlChanged);
+    connect(m_comboMeasType, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &MeasurementSetupPage::onSetupControlChanged);
+    connect(m_btnCalBrowse, &QPushButton::clicked, this, &MeasurementSetupPage::onCalBrowseClicked);
 
     // Initial state loading
     onProfileLoaded(m_presenter->getProfile());
@@ -510,6 +519,8 @@ void MeasurementSetupPage::onSaveClicked() {
 }
 
 void MeasurementSetupPage::onProfileLoaded(const MeasurementProfile &profile) {
+    // Block signals to prevent infinite update loop
+    blockSignals(true);
     m_spinStartFreq->setValue(profile.startFrequencyHz / 1e9);
     m_spinStopFreq->setValue(profile.stopFrequencyHz / 1e9);
     m_spinPoints->setValue(profile.sweepPoints);
@@ -518,7 +529,39 @@ void MeasurementSetupPage::onProfileLoaded(const MeasurementProfile &profile) {
     m_spinAzStart->setValue(profile.positioner.startAngleDeg);
     m_spinAzStop->setValue(profile.positioner.stopAngleDeg);
     m_spinAzStep->setValue(profile.positioner.stepAngleDeg);
+    blockSignals(false);
 
+    updateSummary();
+}
+
+void MeasurementSetupPage::onCalBrowseClicked() {
+    bool ok = false;
+    QString item = QInputDialog::getItem(this, tr("Select Calibration File"),
+                                         tr("Available Calibrations:"),
+                                         m_presenter->getAvailableCalibrations(),
+                                         0, false, &ok);
+    if (ok && !item.isEmpty()) {
+        m_lblCalFile->setText(item);
+        onSetupControlChanged();
+    }
+}
+
+void MeasurementSetupPage::onSetupControlChanged() {
+    MeasurementProfile profile;
+    profile.profileName = m_comboMeasType->currentText().toStdString();
+    profile.measurementType = m_comboMeasType->currentText().toStdString();
+    profile.startFrequencyHz = m_spinStartFreq->value() * 1e9;
+    profile.stopFrequencyHz = m_spinStopFreq->value() * 1e9;
+    profile.sweepPoints = m_spinPoints->value();
+    profile.calibrationFile = m_lblCalFile->text().toStdString();
+
+    profile.positioner.usePositioner = true;
+    profile.positioner.startAngleDeg = m_spinAzStart->value();
+    profile.positioner.stopAngleDeg = m_spinAzStop->value();
+    profile.positioner.stepAngleDeg = m_spinAzStep->value();
+    profile.positioner.settleTimeMs = 150;
+
+    m_presenter->updateProfile(profile);
     updateSummary();
 }
 

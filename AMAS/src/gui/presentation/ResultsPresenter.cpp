@@ -39,4 +39,13 @@ bool ResultsPresenter::loadSession(const QString &sessionFolder, MeasurementSess
     return true;
 }
 
+bool ResultsPresenter::loadLatestSession(MeasurementSession &outSession) {
+    outSession = m_parent->controller()->getLatestSession();
+    return !outSession.sessionName.empty();
+}
+
+bool ResultsPresenter::hasLatestSession() const {
+    return !m_parent->controller()->getLatestSession().sessionName.empty();
+}
+
 } // namespace AMAS

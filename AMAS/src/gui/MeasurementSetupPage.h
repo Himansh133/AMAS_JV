@@ -97,6 +97,8 @@ private:
 private slots:
     void onSaveClicked();
     void onProfileLoaded(const MeasurementProfile &profile);
+    void onCalBrowseClicked();
+    void onSetupControlChanged();
 
 private:
     SetupPresenter *m_presenter;

@@ -79,6 +79,12 @@ private:
 private slots:
     void onProfileSelected(QTreeWidgetItem *item, int column);
     void onSaveClicked();
+    void refreshProfileList();
+    void onNewClicked();
+    void onDuplicateClicked();
+    void onRenameClicked();
+    void onDeleteClicked();
+    void onOpenClicked();
 
 private:
     ProfilePresenter *m_presenter;

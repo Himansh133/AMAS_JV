@@ -230,6 +230,7 @@ if(BUILD_TESTING)
     target_link_libraries(AMAS_tests PRIVATE
         gtest_main
         VISA::VISA
+        Qt6::Core
     )
     
     find_package(Threads REQUIRED)

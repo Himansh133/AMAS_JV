@@ -52,6 +52,12 @@ private:
     // Log Widget
     QTextEdit *m_logEdit;
 
+    // Detailed parameters widgets
+    QLabel *m_lblVnaResource;
+    QLabel *m_lblVnaDeviceName;
+    QLabel *m_lblPosPort;
+    QLabel *m_lblPosDeviceName;
+
 private slots:
     void onConnectClicked();
     void onDisconnectClicked();

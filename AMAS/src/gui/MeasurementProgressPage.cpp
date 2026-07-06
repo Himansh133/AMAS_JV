@@ -386,11 +386,13 @@ void MeasurementProgressPage::onAbortClicked() {
 }
 
 void MeasurementProgressPage::updateProgress(float progressPercent, const QString &statusMessage) {
-    m_progressBar->setValue(static_cast<int>(progressPercent * 100));
+    m_progressBar->setValue(static_cast<int>(progressPercent));
     m_lblStatus->setText(statusMessage);
     
     // Auto update labels
-    m_lblCurrAngle->setText(tr("%1\xc2\xb0").arg(static_cast<double>(progressPercent * 180.0), 0, 'f', 1));
+    m_lblCurrAngle->setText(tr("%1°").arg(static_cast<double>(m_presenter->getCurrentAngle()), 0, 'f', 1));
+    m_lblCurrFreq->setText(tr("%1 GHz").arg(m_presenter->getCurrentFreq() / 1e9, 0, 'f', 3));
+    m_lblEstRemaining->setText(tr("%1 s").arg(m_presenter->getEstimatedRemainingTime(), 0, 'f', 1));
 }
 
 void MeasurementProgressPage::handleMeasurementFinished(bool success) {

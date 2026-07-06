@@ -38,4 +38,12 @@ bool DashboardPresenter::isPositionerConnected() const {
     return m_parent->controller()->isPositionerConnected();
 }
 
+QString DashboardPresenter::lastMeasurement() const {
+    return tr("Gain Sweep (Horn 8-12 GHz)");
+}
+
+QString DashboardPresenter::applicationVersion() const {
+    return "1.0.0";
+}
+
 } // namespace AMAS

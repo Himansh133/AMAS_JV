@@ -8,6 +8,7 @@
 #include <QScrollArea>
 #include <QStyle>
 #include <QSettings>
+#include <QInputDialog>
 
 namespace AMAS {
 
@@ -59,9 +60,20 @@ ProfileManagerPage::ProfileManagerPage(ProfilePresenter *presenter, QWidget *par
         m_splitter->restoreState(state);
     }
 
-    // Connect explorer signal
+    // Connect explorer signals
     connect(m_treeProfiles, &QTreeWidget::itemDoubleClicked, this, &ProfileManagerPage::onProfileSelected);
     connect(m_btnSaveAs, &QPushButton::clicked, this, &ProfileManagerPage::onSaveClicked);
+
+    // Connect toolbar buttons
+    connect(m_btnNew, &QPushButton::clicked, this, &ProfileManagerPage::onNewClicked);
+    connect(m_btnDuplicate, &QPushButton::clicked, this, &ProfileManagerPage::onDuplicateClicked);
+    connect(m_btnRename, &QPushButton::clicked, this, &ProfileManagerPage::onRenameClicked);
+    connect(m_btnDelete, &QPushButton::clicked, this, &ProfileManagerPage::onDeleteClicked);
+    connect(m_btnRefresh, &QPushButton::clicked, this, &ProfileManagerPage::refreshProfileList);
+    connect(m_btnOpen, &QPushButton::clicked, this, &ProfileManagerPage::onOpenClicked);
+
+    // Initial load of profiles
+    refreshProfileList();
 
     mainLayout->addWidget(m_splitter, 1);
 }
@@ -346,6 +358,100 @@ void ProfileManagerPage::onSaveClicked() {
     profile.calibrationFile = m_lblCal->text().toStdString();
 
     m_presenter->saveProfile(QString::fromStdString(profile.profileName), profile);
+}
+
+void ProfileManagerPage::refreshProfileList() {
+    m_treeProfiles->clear();
+    auto *rootItem = new QTreeWidgetItem(m_treeProfiles);
+    rootItem->setText(0, tr("Measurement Profiles"));
+    rootItem->setExpanded(true);
+
+    auto *catGain = new QTreeWidgetItem(rootItem);
+    catGain->setText(0, tr("Antenna Gain"));
+    catGain->setExpanded(true);
+
+    auto *catPattern = new QTreeWidgetItem(rootItem);
+    catPattern->setText(0, tr("Radiation Pattern"));
+    catPattern->setExpanded(true);
+
+    auto *catS11 = new QTreeWidgetItem(rootItem);
+    catS11->setText(0, tr("S11"));
+    catS11->setExpanded(true);
+
+    for (const auto& name : m_presenter->getProfiles()) {
+        QTreeWidgetItem *parentItem = rootItem;
+        if (name.contains("Horn") || name.contains("Patch")) {
+            parentItem = catGain;
+        } else if (name.contains("Pattern") || name.contains("Scan") || name.contains("Chamber")) {
+            parentItem = catPattern;
+        } else if (name.contains("PCB") || name.contains("Waveguide")) {
+            parentItem = catS11;
+        }
+        auto *item = new QTreeWidgetItem(parentItem);
+        item->setText(0, name);
+    }
+}
+
+void ProfileManagerPage::onNewClicked() {
+    bool ok = false;
+    QString newName = QInputDialog::getText(this, tr("Create Profile"), tr("Enter Profile Name:"), QLineEdit::Normal, "", &ok);
+    if (ok && !newName.isEmpty()) {
+        MeasurementProfile p;
+        p.profileName = newName.toStdString();
+        p.measurementType = "S11";
+        p.startFrequencyHz = 8.0e9;
+        p.stopFrequencyHz = 12.0e9;
+        p.sweepPoints = 401;
+        p.calibrationFile = "None";
+        p.positioner.usePositioner = true;
+        p.positioner.startAngleDeg = 0.0f;
+        p.positioner.stopAngleDeg = 180.0f;
+        p.positioner.stepAngleDeg = 10.0f;
+        p.positioner.settleTimeMs = 150;
+
+        m_presenter->saveProfile(newName, p);
+    }
+}
+
+void ProfileManagerPage::onDuplicateClicked() {
+    QTreeWidgetItem *item = m_treeProfiles->currentItem();
+    if (item && item->parent() && item->parent() != m_treeProfiles->invisibleRootItem()) {
+        QString source = item->text(0);
+        m_presenter->duplicateProfile(source, source + " (Copy)");
+    }
+}
+
+void ProfileManagerPage::onRenameClicked() {
+    QTreeWidgetItem *item = m_treeProfiles->currentItem();
+    if (item && item->parent() && item->parent() != m_treeProfiles->invisibleRootItem()) {
+        QString oldName = item->text(0);
+        bool ok = false;
+        QString newName = QInputDialog::getText(this, tr("Rename Profile"), tr("New Profile Name:"), QLineEdit::Normal, oldName, &ok);
+        if (ok && !newName.isEmpty()) {
+            MeasurementProfile p;
+            if (m_presenter->loadProfile(oldName, p)) {
+                m_presenter->deleteProfile(oldName);
+                m_presenter->saveProfile(newName, p);
+            }
+        }
+    }
+}
+
+void ProfileManagerPage::onDeleteClicked() {
+    QTreeWidgetItem *item = m_treeProfiles->currentItem();
+    if (item && item->parent() && item->parent() != m_treeProfiles->invisibleRootItem()) {
+        m_presenter->deleteProfile(item->text(0));
+    }
+}
+
+void ProfileManagerPage::onOpenClicked() {
+    QTreeWidgetItem *item = m_treeProfiles->currentItem();
+    if (item && item->parent() && item->parent() != m_treeProfiles->invisibleRootItem()) {
+        MeasurementProfile p;
+        if (m_presenter->loadProfile(item->text(0), p)) {
+            m_presenter->setActiveProfile(p);
+        }
+    }
 }
 
 } // namespace AMAS

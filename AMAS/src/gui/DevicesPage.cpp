@@ -97,13 +97,13 @@ void DevicesPage::createFieldFoxPanel(QGroupBox *box) {
     lblType->setStyleSheet("color: #FFFFFF;");
     formLayout->addRow(tr("Connection Type:"), lblType);
 
-    auto *lblAddress = new QLabel(tr("TCPIP0::192.168.113.206::inst0::INSTR"), this);
-    lblAddress->setStyleSheet("color: #FFFFFF; font-family: Consolas, monospace;");
-    formLayout->addRow(tr("VISA Resource:"), lblAddress);
+    m_lblVnaResource = new QLabel(m_presenter->vnaResource(), this);
+    m_lblVnaResource->setStyleSheet("color: #FFFFFF; font-family: Consolas, monospace;");
+    formLayout->addRow(tr("VISA Resource:"), m_lblVnaResource);
 
-    auto *lblFirmware = new QLabel(tr("A.10.15 (Keysight Mock Core)"), this);
-    lblFirmware->setStyleSheet("color: #FFFFFF;");
-    formLayout->addRow(tr("Firmware:"), lblFirmware);
+    m_lblVnaDeviceName = new QLabel(m_presenter->vnaDeviceName(), this);
+    m_lblVnaDeviceName->setStyleSheet("color: #FFFFFF;");
+    formLayout->addRow(tr("Device Name:"), m_lblVnaDeviceName);
 
     auto *statusLayout = new QHBoxLayout();
     statusLayout->setSpacing(6);
@@ -155,9 +155,13 @@ void DevicesPage::createPositionerPanel(QGroupBox *box) {
     formLayout->setSpacing(10);
     formLayout->setLabelAlignment(Qt::AlignRight);
 
-    auto *lblPort = new QLabel(tr("COM3"), this);
-    lblPort->setStyleSheet("color: #FFFFFF;");
-    formLayout->addRow(tr("COM Port:"), lblPort);
+    m_lblPosPort = new QLabel(m_presenter->positionerPort(), this);
+    m_lblPosPort->setStyleSheet("color: #FFFFFF;");
+    formLayout->addRow(tr("COM Port:"), m_lblPosPort);
+
+    m_lblPosDeviceName = new QLabel(m_presenter->positionerDeviceName(), this);
+    m_lblPosDeviceName->setStyleSheet("color: #FFFFFF;");
+    formLayout->addRow(tr("Device Name:"), m_lblPosDeviceName);
 
     auto *lblBaud = new QLabel(tr("19200 bps (8N1)"), this);
     lblBaud->setStyleSheet("color: #FFFFFF;");
@@ -299,6 +303,11 @@ void DevicesPage::onDisconnectClicked() {
 }
 
 void DevicesPage::updateConnectionStatus(bool vnaConnected, bool posConnected) {
+    if (m_lblVnaResource) m_lblVnaResource->setText(m_presenter->vnaResource());
+    if (m_lblVnaDeviceName) m_lblVnaDeviceName->setText(m_presenter->vnaDeviceName());
+    if (m_lblPosPort) m_lblPosPort->setText(m_presenter->positionerPort());
+    if (m_lblPosDeviceName) m_lblPosDeviceName->setText(m_presenter->positionerDeviceName());
+
     m_lblVnaStatus->setText(vnaConnected ? tr("Connected") : tr("Disconnected"));
     m_lblVnaStatus->setStyleSheet(vnaConnected ? "font-weight: bold; color: #4CAF50;" : "font-weight: bold; color: #C8C8C8;");
     m_btnVnaConnect->setEnabled(!vnaConnected);

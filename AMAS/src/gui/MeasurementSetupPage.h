@@ -2,14 +2,12 @@
 #define AMAS_MEASUREMENTSETUPPAGE_H
 
 #include <QWidget>
-#include <QComboBox>
 #include <QLabel>
-#include <QDoubleSpinBox>
-#include <QSpinBox>
 #include <QPushButton>
 #include <QLineEdit>
 #include <QCheckBox>
 #include <QGroupBox>
+#include "widgets/NoWheelWidgets.h"
 #include <QHBoxLayout>
 #include <QScrollArea>
 
@@ -44,14 +42,14 @@ private:
     void updateSummary();
 
     // Section 1 Widgets
-    QComboBox *m_comboMeasType;
+    NoWheelComboBox *m_comboMeasType;
     QLabel    *m_lblMeasDesc;
 
     // Section 2 Widgets
-    QDoubleSpinBox *m_spinStartFreq;
-    QDoubleSpinBox *m_spinStopFreq;
-    QSpinBox       *m_spinPoints;
-    QComboBox      *m_comboBand;
+    NoWheelDoubleSpinBox *m_spinStartFreq;
+    NoWheelDoubleSpinBox *m_spinStopFreq;
+    NoWheelSpinBox       *m_spinPoints;
+    NoWheelComboBox      *m_comboBand;
 
     // Section 3 Widgets
     QLabel      *m_lblCalFile;
@@ -60,17 +58,17 @@ private:
     QLabel      *m_lblCalDate;
 
     // Section 4 Widgets
-    QDoubleSpinBox *m_spinAzStart;
-    QDoubleSpinBox *m_spinAzStop;
-    QDoubleSpinBox *m_spinAzStep;
+    NoWheelDoubleSpinBox *m_spinAzStart;
+    NoWheelDoubleSpinBox *m_spinAzStop;
+    NoWheelDoubleSpinBox *m_spinAzStep;
     
-    QDoubleSpinBox *m_spinElStart;
-    QDoubleSpinBox *m_spinElStop;
-    QDoubleSpinBox *m_spinElStep;
+    NoWheelDoubleSpinBox *m_spinElStart;
+    NoWheelDoubleSpinBox *m_spinElStop;
+    NoWheelDoubleSpinBox *m_spinElStep;
 
-    QDoubleSpinBox *m_spinPlStart;
-    QDoubleSpinBox *m_spinPlStop;
-    QDoubleSpinBox *m_spinPlStep;
+    NoWheelDoubleSpinBox *m_spinPlStart;
+    NoWheelDoubleSpinBox *m_spinPlStop;
+    NoWheelDoubleSpinBox *m_spinPlStep;
 
     // Section 5 Widgets
     QLineEdit   *m_txtOutputFolder;

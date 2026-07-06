@@ -157,6 +157,7 @@ set(SOURCES
     src/gui/widgets/MeasProfileCard.cpp
     src/gui/widgets/QuickActionButton.h
     src/gui/widgets/QuickActionButton.cpp
+    src/gui/widgets/NoWheelWidgets.h
 )
 
 

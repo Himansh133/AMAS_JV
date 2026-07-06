@@ -104,7 +104,7 @@ void MeasurementSetupPage::createMeasTypePanel(QGroupBox *box) {
     layout->setContentsMargins(12, 12, 12, 12);
     layout->setSpacing(12);
 
-    m_comboMeasType = new QComboBox(box);
+    m_comboMeasType = new NoWheelComboBox(box);
     m_comboMeasType->setMinimumWidth(260);
     m_comboMeasType->addItems({
         tr("S11 Measurement"),
@@ -134,7 +134,7 @@ void MeasurementSetupPage::createFreqPanel(QGroupBox *box) {
     // Row 0: Frequencies
     auto *lblStart = new QLabel(tr("Start Frequency:"), box);
     layout->addWidget(lblStart, 0, 0);
-    m_spinStartFreq = new QDoubleSpinBox(box);
+    m_spinStartFreq = new NoWheelDoubleSpinBox(box);
     m_spinStartFreq->setRange(0.1, 40.0);
     m_spinStartFreq->setSuffix(tr(" GHz"));
     m_spinStartFreq->setDecimals(3);
@@ -143,7 +143,7 @@ void MeasurementSetupPage::createFreqPanel(QGroupBox *box) {
 
     auto *lblStop = new QLabel(tr("Stop Frequency:"), box);
     layout->addWidget(lblStop, 0, 2);
-    m_spinStopFreq = new QDoubleSpinBox(box);
+    m_spinStopFreq = new NoWheelDoubleSpinBox(box);
     m_spinStopFreq->setRange(0.1, 40.0);
     m_spinStopFreq->setSuffix(tr(" GHz"));
     m_spinStopFreq->setDecimals(3);
@@ -153,7 +153,7 @@ void MeasurementSetupPage::createFreqPanel(QGroupBox *box) {
     // Row 1: Points & Band Preset
     auto *lblPoints = new QLabel(tr("Sweep Points:"), box);
     layout->addWidget(lblPoints, 1, 0);
-    m_spinPoints = new QSpinBox(box);
+    m_spinPoints = new NoWheelSpinBox(box);
     m_spinPoints->setRange(1, 10001);
     m_spinPoints->setValue(401);
     m_spinPoints->setMinimumWidth(160);
@@ -161,7 +161,7 @@ void MeasurementSetupPage::createFreqPanel(QGroupBox *box) {
 
     auto *lblBand = new QLabel(tr("Frequency Band:"), box);
     layout->addWidget(lblBand, 1, 2);
-    m_comboBand = new QComboBox(box);
+    m_comboBand = new NoWheelComboBox(box);
     m_comboBand->setMinimumWidth(260);
     m_comboBand->addItems({
         tr("8–12 GHz"),
@@ -240,19 +240,19 @@ void MeasurementSetupPage::createAngularPanel(QGroupBox *box) {
 
     // Azimuth row
     layout->addWidget(new QLabel(tr("Azimuth"), box), 1, 0);
-    m_spinAzStart = new QDoubleSpinBox(box);
+    m_spinAzStart = new NoWheelDoubleSpinBox(box);
     m_spinAzStart->setRange(0.0, 360.0);
     m_spinAzStart->setValue(0.0);
     m_spinAzStart->setMinimumWidth(160);
     layout->addWidget(m_spinAzStart, 1, 1);
 
-    m_spinAzStop = new QDoubleSpinBox(box);
+    m_spinAzStop = new NoWheelDoubleSpinBox(box);
     m_spinAzStop->setRange(0.0, 360.0);
     m_spinAzStop->setValue(180.0);
     m_spinAzStop->setMinimumWidth(160);
     layout->addWidget(m_spinAzStop, 1, 2);
 
-    m_spinAzStep = new QDoubleSpinBox(box);
+    m_spinAzStep = new NoWheelDoubleSpinBox(box);
     m_spinAzStep->setRange(0.1, 45.0);
     m_spinAzStep->setValue(10.0);
     m_spinAzStep->setMinimumWidth(160);
@@ -261,19 +261,19 @@ void MeasurementSetupPage::createAngularPanel(QGroupBox *box) {
 
     // Elevation row
     layout->addWidget(new QLabel(tr("Elevation"), box), 2, 0);
-    m_spinElStart = new QDoubleSpinBox(box);
+    m_spinElStart = new NoWheelDoubleSpinBox(box);
     m_spinElStart->setRange(-90.0, 90.0);
     m_spinElStart->setValue(0.0);
     m_spinElStart->setMinimumWidth(160);
     layout->addWidget(m_spinElStart, 2, 1);
 
-    m_spinElStop = new QDoubleSpinBox(box);
+    m_spinElStop = new NoWheelDoubleSpinBox(box);
     m_spinElStop->setRange(-90.0, 90.0);
     m_spinElStop->setValue(0.0);
     m_spinElStop->setMinimumWidth(160);
     layout->addWidget(m_spinElStop, 2, 2);
 
-    m_spinElStep = new QDoubleSpinBox(box);
+    m_spinElStep = new NoWheelDoubleSpinBox(box);
     m_spinElStep->setRange(0.1, 45.0);
     m_spinElStep->setValue(1.0);
     m_spinElStep->setMinimumWidth(160);
@@ -282,19 +282,19 @@ void MeasurementSetupPage::createAngularPanel(QGroupBox *box) {
 
     // Polarization row
     layout->addWidget(new QLabel(tr("Polarization"), box), 3, 0);
-    m_spinPlStart = new QDoubleSpinBox(box);
+    m_spinPlStart = new NoWheelDoubleSpinBox(box);
     m_spinPlStart->setRange(0.0, 360.0);
     m_spinPlStart->setValue(0.0);
     m_spinPlStart->setMinimumWidth(160);
     layout->addWidget(m_spinPlStart, 3, 1);
 
-    m_spinPlStop = new QDoubleSpinBox(box);
+    m_spinPlStop = new NoWheelDoubleSpinBox(box);
     m_spinPlStop->setRange(0.0, 360.0);
     m_spinPlStop->setValue(0.0);
     m_spinPlStop->setMinimumWidth(160);
     layout->addWidget(m_spinPlStop, 3, 2);
 
-    m_spinPlStep = new QDoubleSpinBox(box);
+    m_spinPlStep = new NoWheelDoubleSpinBox(box);
     m_spinPlStep->setRange(0.1, 45.0);
     m_spinPlStep->setValue(1.0);
     m_spinPlStep->setMinimumWidth(160);

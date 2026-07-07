@@ -19,6 +19,7 @@ namespace AMAS {
 SmithChartWidget::SmithChartWidget(const QString &title, QWidget *parent)
     : QWidget(parent)
 {
+    setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
     // Layout
     auto *layout = new QVBoxLayout(this);
     layout->setContentsMargins(0, 0, 0, 0);
@@ -58,16 +59,18 @@ SmithChartWidget::SmithChartWidget(const QString &title, QWidget *parent)
     // Set height stretch to push canvas down
     layout->addSpacing(4);
     
-    // Transparent spacer placeholder for paint canvas
-    auto *spacer = new QWidget(this);
-    spacer->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
-    layout->addWidget(spacer, 1);
+    // Add layout stretch instead of a child widget to allow transparent paint space
+    layout->addStretch(1);
 
     // Connect slots
     connect(m_btnReset, &QPushButton::clicked, this, &SmithChartWidget::onResetViewClicked);
     connect(m_btnExport, &QPushButton::clicked, this, &SmithChartWidget::onExportClicked);
 
     setMouseTracking(true);
+}
+
+QSize SmithChartWidget::sizeHint() const {
+    return QSize(400, 400);
 }
 
 void SmithChartWidget::setSessionData(const std::vector<ProcessedMeasurementPoint> &points) {

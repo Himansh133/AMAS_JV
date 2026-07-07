@@ -18,6 +18,9 @@ class ResultsPresenter;
 class MeasurementPlotWidget;
 class PolarPlotWidget;
 class SmithChartWidget;
+#ifdef AMAS_HAS_3D_VISUALIZATION
+class RadiationPattern3DWidget;
+#endif
 
 class ResultsPage : public QWidget {
     Q_OBJECT
@@ -35,6 +38,7 @@ private:
     QWidget* createPhaseTab(QWidget *parent);
     QWidget* createPolarTab(QWidget *parent);
     QWidget* createSmithTab(QWidget *parent);
+    QWidget* createPattern3DTab(QWidget *parent);
     QWidget* createTableTab(QWidget *parent);
     QWidget* createStatisticsTab(QWidget *parent);
     QWidget* createReportTab(QWidget *parent);
@@ -78,6 +82,11 @@ private:
     MeasurementPlotWidget *m_phasePlot;
     PolarPlotWidget       *m_polarPlot;
     SmithChartWidget      *m_smithChart;
+#ifdef AMAS_HAS_3D_VISUALIZATION
+    RadiationPattern3DWidget *m_pattern3DPlot;
+#else
+    QWidget                  *m_pattern3DPlot;
+#endif
 
     // Report Preview Text Edit
     QTextEdit *m_txtReportPreview;

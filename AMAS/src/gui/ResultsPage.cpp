@@ -5,6 +5,9 @@
 #include "widgets/MeasurementPlotWidget.h"
 #include "widgets/PolarPlotWidget.h"
 #include "widgets/SmithChartWidget.h"
+#ifdef AMAS_HAS_3D_VISUALIZATION
+#include "widgets/RadiationPattern3DWidget.h"
+#endif
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QGridLayout>
@@ -235,6 +238,7 @@ void ResultsPage::createWorkspacePanel(QWidget *parent) {
     m_tabWidget->addTab(createPhaseTab(m_tabWidget), tr("Phase Plot"));
     m_tabWidget->addTab(createPolarTab(m_tabWidget), tr("Polar Plot"));
     m_tabWidget->addTab(createSmithTab(m_tabWidget), tr("Smith Chart"));
+    m_tabWidget->addTab(createPattern3DTab(m_tabWidget), tr("3D Pattern"));
     m_tabWidget->addTab(createTableTab(m_tabWidget), tr("Data Table"));
     m_tabWidget->addTab(createStatisticsTab(m_tabWidget), tr("Statistics"));
     m_tabWidget->addTab(createReportTab(m_tabWidget), tr("Report"));
@@ -308,6 +312,25 @@ QWidget* ResultsPage::createSmithTab(QWidget *parent) {
 
     m_smithChart = new SmithChartWidget(tr("Complex Reflection Locus"), tab);
     layout->addWidget(m_smithChart);
+    return tab;
+}
+
+QWidget* ResultsPage::createPattern3DTab(QWidget *parent) {
+    auto *tab = new QWidget(parent);
+    auto *layout = new QVBoxLayout(tab);
+    layout->setContentsMargins(12, 12, 12, 12);
+
+#ifdef AMAS_HAS_3D_VISUALIZATION
+    m_pattern3DPlot = new RadiationPattern3DWidget(tr("3D Radiation Balloon Pattern"), tab);
+    layout->addWidget(m_pattern3DPlot);
+#else
+    auto *lblFallback = new QLabel(tr("3D Radiation Pattern visualization requires the Qt Data Visualization module, "
+                                      "which is not installed in the current Qt environment."), tab);
+    lblFallback->setAlignment(Qt::AlignCenter);
+    lblFallback->setStyleSheet("color: #C8C8C8; font-size: 13px; font-weight: bold;");
+    layout->addWidget(lblFallback);
+    m_pattern3DPlot = nullptr;
+#endif
     return tab;
 }
 
@@ -607,6 +630,9 @@ void ResultsPage::loadSessionToUI(const MeasurementSession &session) {
         if (m_phasePlot) m_phasePlot->clearData();
         if (m_polarPlot) m_polarPlot->clearData();
         if (m_smithChart) m_smithChart->clearData();
+#ifdef AMAS_HAS_3D_VISUALIZATION
+        if (m_pattern3DPlot) m_pattern3DPlot->clearData();
+#endif
         
         m_lblStatMinMag->setText(tr("N/A"));
         m_lblStatMaxMag->setText(tr("N/A"));
@@ -673,6 +699,9 @@ void ResultsPage::loadSessionToUI(const MeasurementSession &session) {
     if (m_phasePlot) m_phasePlot->setData(freqs, phases, tr("Frequency (GHz)"), tr("Phase (deg)"));
     if (m_polarPlot) m_polarPlot->setSessionData(session.results);
     if (m_smithChart) m_smithChart->setSessionData(session.results);
+#ifdef AMAS_HAS_3D_VISUALIZATION
+    if (m_pattern3DPlot) m_pattern3DPlot->setSessionData(session);
+#endif
 
     // Update Statistics Panel labels
     m_lblStatMinMag->setText(tr("%1 dB").arg(minMag, 0, 'f', 2));

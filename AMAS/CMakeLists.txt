@@ -10,7 +10,8 @@ set(CMAKE_AUTORCC ON)
 set(CMAKE_AUTOUIC ON)
 
 # Find Qt 6 libraries
-find_package(Qt6 COMPONENTS Core Widgets SerialPort Charts)
+find_package(Qt6 COMPONENTS Core Widgets SerialPort Charts REQUIRED)
+find_package(Qt6DataVisualization QUIET)
 
 # Auto-detect target bitness and choose VISA defaults
 if(CMAKE_SIZEOF_VOID_P EQUAL 4)
@@ -166,6 +167,13 @@ set(SOURCES
     src/gui/widgets/SmithChartWidget.cpp
 )
 
+if(Qt6DataVisualization_FOUND OR Qt6_DataVisualization_FOUND)
+    message(STATUS "Qt6 DataVisualization component found. Enabling 3D pattern viewer.")
+    list(APPEND SOURCES
+        src/gui/widgets/RadiationPattern3DWidget.h
+        src/gui/widgets/RadiationPattern3DWidget.cpp
+    )
+endif()
 
 # Main Executable (Requires Qt6)
 if(Qt6_FOUND)
@@ -178,6 +186,10 @@ if(Qt6_FOUND)
         Qt6::Charts
         VISA::VISA
     )
+    if(Qt6DataVisualization_FOUND OR Qt6_DataVisualization_FOUND)
+        target_link_libraries(AMAS PRIVATE Qt6::DataVisualization)
+        target_compile_definitions(AMAS PRIVATE AMAS_HAS_3D_VISUALIZATION)
+    endif()
 else()
     message(STATUS "Qt6 not found. Skipping build of main GUI target 'AMAS'. Only CLI tools and tests will be built.")
 endif()

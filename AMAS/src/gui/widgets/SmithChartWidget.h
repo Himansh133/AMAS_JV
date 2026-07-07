@@ -14,7 +14,7 @@ class SmithChartWidget : public QWidget {
     Q_OBJECT
 public:
     explicit SmithChartWidget(const QString &title, QWidget *parent = nullptr);
-    ~SmithChartWidget() override = default;
+    QSize sizeHint() const override;
 
     // Set active session points
     void setSessionData(const std::vector<ProcessedMeasurementPoint> &points);

@@ -22,6 +22,7 @@ public:
     void resumeMeasurement();
     void stopMeasurement();
     void abortMeasurement();
+    void exportSession(const QString &filePath);
 
     // Query parameters
     float getCurrentAngle() const;
@@ -29,6 +30,14 @@ public:
     double getEstimatedRemainingTime() const;
     QString getStatus() const;
     int getProgress() const;
+    QString getMeasurementName() const;
+    QString getCurrentPolarization() const;
+    QString getOperation() const;
+    QString getSessionId() const;
+    QString getStartTime() const;
+    QString getOperatorName() const;
+    QString getProfileName() const;
+    QString getCalibrationFile() const;
 
 signals:
     void measurementStarted();

@@ -73,8 +73,11 @@ DevicesPage::DevicesPage(DevicesPresenter *presenter, QWidget *parent)
     connect(m_btnPosConnect, &QPushButton::clicked, this, &DevicesPage::onConnectClicked);
     connect(m_btnVnaDisconnect, &QPushButton::clicked, this, &DevicesPage::onDisconnectClicked);
     connect(m_btnPosDisconnect, &QPushButton::clicked, this, &DevicesPage::onDisconnectClicked);
-    connect(m_btnVnaRefresh, &QPushButton::clicked, this, &DevicesPage::onConnectClicked);
-    connect(m_btnPosRefresh, &QPushButton::clicked, this, &DevicesPage::onConnectClicked);
+    connect(m_btnVnaRefresh, &QPushButton::clicked, this, &DevicesPage::onRefreshClicked);
+    connect(m_btnPosRefresh, &QPushButton::clicked, this, &DevicesPage::onRefreshClicked);
+    connect(m_btnVnaIdentify, &QPushButton::clicked, this, &DevicesPage::onIdentifyVnaClicked);
+    connect(m_btnPosHome, &QPushButton::clicked, this, [this]() { m_presenter->homePositioner(); });
+    connect(m_btnPosMove, &QPushButton::clicked, this, [this]() { m_presenter->movePositioner(45.0f); });
 
     connect(m_presenter, &DevicesPresenter::connectionStatusChanged, this, &DevicesPage::updateConnectionStatus);
     connect(m_presenter, &DevicesPresenter::messageLogged, this, &DevicesPage::appendLogMessage);
@@ -107,12 +110,12 @@ void DevicesPage::createFieldFoxPanel(QGroupBox *box) {
 
     auto *statusLayout = new QHBoxLayout();
     statusLayout->setSpacing(6);
-    auto *ind = new QLabel(this);
-    ind->setFixedSize(10, 10);
-    ind->setStyleSheet("border-radius: 5px; background-color: #4CAF50;"); // Green
-    m_lblVnaStatus = new QLabel(tr("Connected"), this);
-    m_lblVnaStatus->setStyleSheet("font-weight: bold; color: #FFFFFF;");
-    statusLayout->addWidget(ind);
+    m_indVnaStatus = new QLabel(this);
+    m_indVnaStatus->setFixedSize(10, 10);
+    m_indVnaStatus->setStyleSheet("border-radius: 5px; background-color: #F44336;"); // Red by default
+    m_lblVnaStatus = new QLabel(tr("Disconnected"), this);
+    m_lblVnaStatus->setStyleSheet("font-weight: bold; color: #C8C8C8;");
+    statusLayout->addWidget(m_indVnaStatus);
     statusLayout->addWidget(m_lblVnaStatus);
     statusLayout->addStretch();
     formLayout->addRow(tr("Status:"), statusLayout);
@@ -173,12 +176,12 @@ void DevicesPage::createPositionerPanel(QGroupBox *box) {
 
     auto *statusLayout = new QHBoxLayout();
     statusLayout->setSpacing(6);
-    auto *ind = new QLabel(this);
-    ind->setFixedSize(10, 10);
-    ind->setStyleSheet("border-radius: 5px; background-color: #F44336;"); // Red
+    m_indPosStatus = new QLabel(this);
+    m_indPosStatus->setFixedSize(10, 10);
+    m_indPosStatus->setStyleSheet("border-radius: 5px; background-color: #F44336;"); // Red
     m_lblPosStatus = new QLabel(tr("Disconnected"), this);
     m_lblPosStatus->setStyleSheet("font-weight: bold; color: #C8C8C8;");
-    statusLayout->addWidget(ind);
+    statusLayout->addWidget(m_indPosStatus);
     statusLayout->addWidget(m_lblPosStatus);
     statusLayout->addStretch();
     formLayout->addRow(tr("Status:"), statusLayout);
@@ -302,6 +305,14 @@ void DevicesPage::onDisconnectClicked() {
     m_presenter->disconnectHardware();
 }
 
+void DevicesPage::onRefreshClicked() {
+    m_presenter->refreshDevices();
+}
+
+void DevicesPage::onIdentifyVnaClicked() {
+    m_presenter->identifyVna();
+}
+
 void DevicesPage::updateConnectionStatus(bool vnaConnected, bool posConnected) {
     if (m_lblVnaResource) m_lblVnaResource->setText(m_presenter->vnaResource());
     if (m_lblVnaDeviceName) m_lblVnaDeviceName->setText(m_presenter->vnaDeviceName());
@@ -312,11 +323,17 @@ void DevicesPage::updateConnectionStatus(bool vnaConnected, bool posConnected) {
     m_lblVnaStatus->setStyleSheet(vnaConnected ? "font-weight: bold; color: #4CAF50;" : "font-weight: bold; color: #C8C8C8;");
     m_btnVnaConnect->setEnabled(!vnaConnected);
     m_btnVnaDisconnect->setEnabled(vnaConnected);
+    if (m_indVnaStatus) {
+        m_indVnaStatus->setStyleSheet(vnaConnected ? "border-radius: 5px; background-color: #4CAF50;" : "border-radius: 5px; background-color: #F44336;");
+    }
 
     m_lblPosStatus->setText(posConnected ? tr("Connected") : tr("Disconnected"));
     m_lblPosStatus->setStyleSheet(posConnected ? "font-weight: bold; color: #4CAF50;" : "font-weight: bold; color: #C8C8C8;");
     m_btnPosConnect->setEnabled(!posConnected);
     m_btnPosDisconnect->setEnabled(posConnected);
+    if (m_indPosStatus) {
+        m_indPosStatus->setStyleSheet(posConnected ? "border-radius: 5px; background-color: #4CAF50;" : "border-radius: 5px; background-color: #F44336;");
+    }
 
     if (m_indVna && m_valVna) {
         m_indVna->setStyleSheet(vnaConnected ? "border-radius: 5px; background-color: #4CAF50;" : "border-radius: 5px; background-color: #F44336;");

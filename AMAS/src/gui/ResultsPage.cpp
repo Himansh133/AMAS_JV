@@ -1,6 +1,8 @@
 #include "ResultsPage.h"
 #include "presentation/ResultsPresenter.h"
+#include "presentation/MeasurementPresenter.h"
 #include "measurement/MeasurementSession.h"
+#include "widgets/MeasurementPlotWidget.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QGridLayout>
@@ -10,6 +12,10 @@
 #include <QHeaderView>
 #include <QFrame>
 #include <QSettings>
+#include <QMessageBox>
+#include <QFileDialog>
+#include <QFile>
+#include <QTextStream>
 
 namespace AMAS {
 
@@ -65,6 +71,7 @@ ResultsPage::ResultsPage(ResultsPresenter *presenter, QWidget *parent)
 
     // Bind Browser Tree signals
     connect(m_treeBrowser, &QTreeWidget::itemDoubleClicked, this, &ResultsPage::onSessionSelected);
+    connect(m_presenter->parentPresenter(), &MeasurementPresenter::stateChanged, this, &ResultsPage::onSessionChanged);
 
     // Bottom Status Bar
     auto *statusBarLayout = new QHBoxLayout();
@@ -72,12 +79,7 @@ ResultsPage::ResultsPage(ResultsPresenter *presenter, QWidget *parent)
     mainLayout->addLayout(statusBarLayout);
 
     // Load initial/latest session if present
-    if (m_presenter->hasLatestSession()) {
-        MeasurementSession session;
-        if (m_presenter->loadLatestSession(session)) {
-            loadSessionToUI(session);
-        }
-    }
+    onSessionChanged();
 }
 
 ResultsPage::~ResultsPage() {
@@ -98,32 +100,51 @@ void ResultsPage::createBrowserPanel(QWidget *parent) {
     m_treeBrowser->setHeaderLabel(tr("Measurements"));
     m_treeBrowser->setMinimumWidth(220);
 
-    // Populate mock items
+    layout->addWidget(m_treeBrowser);
+}
+
+void ResultsPage::refreshBrowser() {
+    m_treeBrowser->clear();
     auto *rootItem = new QTreeWidgetItem(m_treeBrowser);
     rootItem->setText(0, tr("Sessions"));
     rootItem->setExpanded(true);
 
+    // 1. Add mock historical sessions
     auto *sess1 = new QTreeWidgetItem(rootItem);
     sess1->setText(0, tr("Session_001"));
-    sess1->setExpanded(true);
     
     auto *itemS11_1 = new QTreeWidgetItem(sess1);
     itemS11_1->setText(0, tr("S11 Reflection"));
     auto *itemGain_1 = new QTreeWidgetItem(sess1);
     itemGain_1->setText(0, tr("Gain Sweep"));
-    auto *itemPat2D_1 = new QTreeWidgetItem(sess1);
-    itemPat2D_1->setText(0, tr("Pattern 2D (Horn)"));
 
     auto *sess2 = new QTreeWidgetItem(rootItem);
     sess2->setText(0, tr("Session_002"));
-    sess2->setExpanded(true);
 
     auto *itemS11_2 = new QTreeWidgetItem(sess2);
     itemS11_2->setText(0, tr("S11 Patch"));
-    auto *itemPat3D_2 = new QTreeWidgetItem(sess2);
-    itemPat3D_2->setText(0, tr("Pattern 3D (Array)"));
 
-    layout->addWidget(m_treeBrowser);
+    // 2. Add latest live session if present
+    if (m_presenter->hasLatestSession()) {
+        MeasurementSession session;
+        if (m_presenter->loadLatestSession(session)) {
+            auto *sessLive = new QTreeWidgetItem(rootItem);
+            sessLive->setText(0, QString::fromStdString(session.sessionName));
+            sessLive->setExpanded(true);
+            auto *itemLive = new QTreeWidgetItem(sessLive);
+            itemLive->setText(0, QString::fromStdString(session.measurementType));
+        }
+    }
+}
+
+void ResultsPage::onSessionChanged() {
+    refreshBrowser();
+    if (m_presenter->hasLatestSession()) {
+        MeasurementSession session;
+        if (m_presenter->loadLatestSession(session)) {
+            loadSessionToUI(session);
+        }
+    }
 }
 
 void ResultsPage::createWorkspacePanel(QWidget *parent) {
@@ -205,27 +226,12 @@ QWidget* ResultsPage::createGraphsTab(QWidget *parent) {
     layout->setContentsMargins(12, 12, 12, 12);
     layout->setSpacing(16);
 
-    auto createPlaceholderFrame = [tab](const QString &title) -> QFrame* {
-        auto *frame = new QFrame(tab);
-        frame->setFrameShape(QFrame::StyledPanel);
-        frame->setStyleSheet(
-            "QFrame { "
-            "  border: 1px dashed #555555; "
-            "  background-color: #1E1E1E; "
-            "  border-radius: 4px; "
-            "} "
-        );
-        auto *frameLayout = new QVBoxLayout(frame);
-        auto *lbl = new QLabel(title, frame);
-        lbl->setAlignment(Qt::AlignCenter);
-        lbl->setStyleSheet("color: #777777; font-weight: bold; border: none;");
-        frameLayout->addWidget(lbl);
-        return frame;
-    };
+    m_magPlot = new MeasurementPlotWidget(tr("Magnitude Response"), tab);
+    m_phasePlot = new MeasurementPlotWidget(tr("Phase Response"), tab);
 
-    layout->addWidget(createPlaceholderFrame(tr("S11 Plot")));
-    layout->addWidget(createPlaceholderFrame(tr("Gain Plot")));
-    layout->addWidget(createPlaceholderFrame(tr("Radiation Pattern")));
+    layout->addWidget(m_magPlot, 1);
+    layout->addWidget(m_phasePlot, 1);
+
     return tab;
 }
 
@@ -282,15 +288,77 @@ QWidget* ResultsPage::createStatisticsTab(QWidget *parent) {
     auto *formLayout = new QFormLayout(statsBox);
     formLayout->setSpacing(10);
 
-    formLayout->addRow(tr("Maximum Gain:"), new QLabel(tr("12.4 dBi"), statsBox));
-    formLayout->addRow(tr("Minimum Gain:"), new QLabel(tr("-25.3 dBi"), statsBox));
-    formLayout->addRow(tr("Average Gain:"), new QLabel(tr("3.1 dBi"), statsBox));
-    formLayout->addRow(tr("Peak Frequency:"), new QLabel(tr("10.12 GHz"), statsBox));
-    formLayout->addRow(tr("3dB Beam Width:"), new QLabel(tr("42.5 deg"), statsBox));
-    formLayout->addRow(tr("Radiation Efficiency:"), new QLabel(tr("88.4 %"), statsBox));
-    formLayout->addRow(tr("Axial Ratio:"), new QLabel(tr("1.1 dB"), statsBox));
+    m_lblStatMinMag = new QLabel(tr("N/A"), statsBox);
+    m_lblStatMaxMag = new QLabel(tr("N/A"), statsBox);
+    m_lblStatAvgMag = new QLabel(tr("N/A"), statsBox);
+    m_lblStatMinPhase = new QLabel(tr("N/A"), statsBox);
+    m_lblStatMaxPhase = new QLabel(tr("N/A"), statsBox);
+    m_lblStatAvgPhase = new QLabel(tr("N/A"), statsBox);
+    m_lblStatPeakFreq = new QLabel(tr("N/A"), statsBox);
+    m_lblStatSamples = new QLabel(tr("0"), statsBox);
+    m_lblStatFreqSpan = new QLabel(tr("N/A"), statsBox);
+
+    auto setLabelStyle = [](QLabel *lbl) {
+        lbl->setStyleSheet("color: #FFFFFF; font-weight: bold; font-family: monospace;");
+    };
+    setLabelStyle(m_lblStatMinMag);
+    setLabelStyle(m_lblStatMaxMag);
+    setLabelStyle(m_lblStatAvgMag);
+    setLabelStyle(m_lblStatMinPhase);
+    setLabelStyle(m_lblStatMaxPhase);
+    setLabelStyle(m_lblStatAvgPhase);
+    setLabelStyle(m_lblStatPeakFreq);
+    setLabelStyle(m_lblStatSamples);
+    setLabelStyle(m_lblStatFreqSpan);
+
+    formLayout->addRow(tr("Minimum Magnitude:"), m_lblStatMinMag);
+    formLayout->addRow(tr("Maximum Magnitude:"), m_lblStatMaxMag);
+    formLayout->addRow(tr("Average Magnitude:"), m_lblStatAvgMag);
+    formLayout->addRow(tr("Minimum Phase:"), m_lblStatMinPhase);
+    formLayout->addRow(tr("Maximum Phase:"), m_lblStatMaxPhase);
+    formLayout->addRow(tr("Average Phase:"), m_lblStatAvgPhase);
+    formLayout->addRow(tr("Peak Frequency:"), m_lblStatPeakFreq);
+    formLayout->addRow(tr("Number of Samples:"), m_lblStatSamples);
+    formLayout->addRow(tr("Frequency Span:"), m_lblStatFreqSpan);
 
     layout->addWidget(statsBox);
+
+    auto *btnLayout = new QHBoxLayout();
+    auto *btnExportCsv = new QPushButton(tr("Export Statistics to CSV"), tab);
+    btnExportCsv->setIcon(style()->standardIcon(QStyle::SP_DialogSaveButton));
+    btnExportCsv->setMinimumHeight(32);
+    btnExportCsv->setMinimumWidth(200);
+    
+    connect(btnExportCsv, &QPushButton::clicked, this, [this]() {
+        QString fileName = QFileDialog::getSaveFileName(this, 
+            tr("Export Statistics as CSV"), "", tr("CSV Files (*.csv)"));
+        if (fileName.isEmpty()) return;
+
+        QFile file(fileName);
+        if (file.open(QIODevice::WriteOnly | QIODevice::Text)) {
+            QTextStream out(&file);
+            out << "Metric,Value\n";
+            out << "Minimum Magnitude," << m_lblStatMinMag->text().trimmed() << "\n";
+            out << "Maximum Magnitude," << m_lblStatMaxMag->text().trimmed() << "\n";
+            out << "Average Magnitude," << m_lblStatAvgMag->text().trimmed() << "\n";
+            out << "Minimum Phase," << m_lblStatMinPhase->text().trimmed() << "\n";
+            out << "Maximum Phase," << m_lblStatMaxPhase->text().trimmed() << "\n";
+            out << "Average Phase," << m_lblStatAvgPhase->text().trimmed() << "\n";
+            out << "Peak Frequency," << m_lblStatPeakFreq->text().trimmed() << "\n";
+            out << "Number of Samples," << m_lblStatSamples->text().trimmed() << "\n";
+            out << "Frequency Span," << m_lblStatFreqSpan->text().trimmed() << "\n";
+            file.close();
+            QMessageBox::information(this, tr("Export Success"), 
+                tr("Statistics successfully exported to '%1'").arg(QFileInfo(fileName).fileName()));
+        } else {
+            QMessageBox::warning(this, tr("Export Failure"), 
+                tr("Failed to write to file."));
+        }
+    });
+
+    btnLayout->addWidget(btnExportCsv);
+    btnLayout->addStretch();
+    layout->addLayout(btnLayout);
     layout->addStretch();
     return tab;
 }
@@ -304,9 +372,9 @@ QWidget* ResultsPage::createReportTab(QWidget *parent) {
     auto *previewBox = new QGroupBox(tr("Report Document Preview"), tab);
     auto *previewLayout = new QVBoxLayout(previewBox);
     
-    auto *previewText = new QTextEdit(previewBox);
-    previewText->setReadOnly(true);
-    previewText->setStyleSheet(
+    m_txtReportPreview = new QTextEdit(previewBox);
+    m_txtReportPreview->setReadOnly(true);
+    m_txtReportPreview->setStyleSheet(
         "QTextEdit { "
         "  background-color: #1E1E1E; "
         "  border: 1px solid #3F3F46; "
@@ -314,18 +382,18 @@ QWidget* ResultsPage::createReportTab(QWidget *parent) {
         "  color: #C8C8C8; "
         "} "
     );
-    previewText->append(tr("=================================================="));
-    previewText->append(tr("          AMAS ANTENNA MEASUREMENT REPORT         "));
-    previewText->append(tr("=================================================="));
-    previewText->append(tr("Session ID: SESS-2026-0701"));
-    previewText->append(tr("Operator: Operator-01"));
-    previewText->append(tr("Calibration state: Coaxial 2-Port SOLT valid"));
-    previewText->append(tr("Frequency band: 8-12 GHz"));
-    previewText->append(tr("Peak Gain: 12.4 dBi @ 10.12 GHz"));
-    previewText->append(tr("Radiation efficiency: 88.4%"));
-    previewText->append(tr("=================================================="));
+    m_txtReportPreview->append(tr("=================================================="));
+    m_txtReportPreview->append(tr("          AMAS ANTENNA MEASUREMENT REPORT         "));
+    m_txtReportPreview->append(tr("=================================================="));
+    m_txtReportPreview->append(tr("Session ID: SESS-2026-0701"));
+    m_txtReportPreview->append(tr("Operator: Operator-01"));
+    m_txtReportPreview->append(tr("Calibration state: Coaxial 2-Port SOLT valid"));
+    m_txtReportPreview->append(tr("Frequency band: 8-12 GHz"));
+    m_txtReportPreview->append(tr("Peak Gain: 12.4 dBi @ 10.12 GHz"));
+    m_txtReportPreview->append(tr("Radiation efficiency: 88.4%"));
+    m_txtReportPreview->append(tr("=================================================="));
 
-    previewLayout->addWidget(previewText);
+    previewLayout->addWidget(m_txtReportPreview);
     layout->addWidget(previewBox);
 
     // Export controls
@@ -351,6 +419,36 @@ QWidget* ResultsPage::createReportTab(QWidget *parent) {
     btnPrint->setIcon(style()->standardIcon(QStyle::SP_CommandLink));
     btnPrint->setMinimumWidth(140);
     btnPrint->setMinimumHeight(32);
+
+    connect(btnCsv, &QPushButton::clicked, this, [this]() {
+        QString fileName = QFileDialog::getSaveFileName(this, 
+            tr("Export Data Table as CSV"), "", tr("CSV Files (*.csv)"));
+        if (fileName.isEmpty()) return;
+
+        QFile file(fileName);
+        if (file.open(QIODevice::WriteOnly | QIODevice::Text)) {
+            QTextStream out(&file);
+            out << "Frequency (GHz),Magnitude (dB),Phase (deg),Angle (deg),Return Loss (dB)\n";
+            for (int r = 0; r < m_dataTable->rowCount(); ++r) {
+                out << m_dataTable->item(r, 0)->text() << ","
+                    << m_dataTable->item(r, 1)->text() << ","
+                    << m_dataTable->item(r, 2)->text() << ","
+                    << m_dataTable->item(r, 3)->text() << ","
+                    << m_dataTable->item(r, 4)->text() << "\n";
+            }
+            file.close();
+            QMessageBox::information(this, tr("Export Success"), 
+                tr("Data Table successfully exported to '%1'").arg(QFileInfo(fileName).fileName()));
+        } else {
+            QMessageBox::warning(this, tr("Export Failure"), tr("Failed to write to file."));
+        }
+    });
+
+    connect(btnImg, &QPushButton::clicked, this, [this]() {
+        if (m_magPlot) {
+            m_magPlot->onExportClicked();
+        }
+    });
 
     exportBar->addWidget(btnPdf);
     exportBar->addWidget(btnCsv);
@@ -424,9 +522,108 @@ void ResultsPage::loadSessionToUI(const MeasurementSession &session) {
     m_statusLoaded->setText(tr("Loaded: %1").arg(QString::fromStdString(session.sessionName)));
     m_statusUpdate->setText(tr("Updated: %1").arg(QString::fromStdString(session.timestamp)));
 
+    if (session.results.empty()) {
+        if (m_magPlot) m_magPlot->clearData();
+        if (m_phasePlot) m_phasePlot->clearData();
+        
+        m_lblStatMinMag->setText(tr("N/A"));
+        m_lblStatMaxMag->setText(tr("N/A"));
+        m_lblStatAvgMag->setText(tr("N/A"));
+        m_lblStatMinPhase->setText(tr("N/A"));
+        m_lblStatMaxPhase->setText(tr("N/A"));
+        m_lblStatAvgPhase->setText(tr("N/A"));
+        m_lblStatPeakFreq->setText(tr("N/A"));
+        m_lblStatSamples->setText(tr("0"));
+        m_lblStatFreqSpan->setText(tr("N/A"));
+        
+        m_dataTable->setRowCount(0);
+        if (m_txtReportPreview) m_txtReportPreview->clear();
+        
+        QMessageBox::warning(this, tr("Empty Session"), tr("The selected measurement session contains no data."));
+        return;
+    }
+
+    std::vector<double> freqs;
+    std::vector<double> mags;
+    std::vector<double> phases;
+    freqs.reserve(session.results.size());
+    mags.reserve(session.results.size());
+    phases.reserve(session.results.size());
+
+    double minMag = 9999.0;
+    double maxMag = -9999.0;
+    double sumMag = 0.0;
+
+    double minPhase = 9999.0;
+    double maxPhase = -9999.0;
+    double sumPhase = 0.0;
+
+    double peakFreqVal = 0.0;
+
+    for (const auto &pt : session.results) {
+        double fGhz = pt.frequencyHz / 1e9;
+        freqs.push_back(fGhz);
+        mags.push_back(pt.magnitudeDb);
+        phases.push_back(pt.phaseDeg);
+
+        // Magnitude stats
+        if (pt.magnitudeDb < minMag) minMag = pt.magnitudeDb;
+        if (pt.magnitudeDb > maxMag) {
+            maxMag = pt.magnitudeDb;
+            peakFreqVal = fGhz;
+        }
+        sumMag += pt.magnitudeDb;
+
+        // Phase stats
+        if (pt.phaseDeg < minPhase) minPhase = pt.phaseDeg;
+        if (pt.phaseDeg > maxPhase) maxPhase = pt.phaseDeg;
+        sumPhase += pt.phaseDeg;
+    }
+
+    double avgMag = sumMag / session.results.size();
+    double avgPhase = sumPhase / session.results.size();
+    double minF = freqs.front();
+    double maxF = freqs.back();
+    double freqSpanVal = std::abs(maxF - minF);
+
+    // Update Plots
+    if (m_magPlot) m_magPlot->setData(freqs, mags, tr("Frequency (GHz)"), tr("Magnitude (dB)"));
+    if (m_phasePlot) m_phasePlot->setData(freqs, phases, tr("Frequency (GHz)"), tr("Phase (deg)"));
+
+    // Update Statistics Panel labels
+    m_lblStatMinMag->setText(tr("%1 dB").arg(minMag, 0, 'f', 2));
+    m_lblStatMaxMag->setText(tr("%1 dB").arg(maxMag, 0, 'f', 2));
+    m_lblStatAvgMag->setText(tr("%1 dB").arg(avgMag, 0, 'f', 2));
+    m_lblStatMinPhase->setText(tr("%1 deg").arg(minPhase, 0, 'f', 2));
+    m_lblStatMaxPhase->setText(tr("%1 deg").arg(maxPhase, 0, 'f', 2));
+    m_lblStatAvgPhase->setText(tr("%1 deg").arg(avgPhase, 0, 'f', 2));
+    m_lblStatPeakFreq->setText(tr("%1 GHz").arg(peakFreqVal, 0, 'f', 3));
+    m_lblStatSamples->setText(QString::number(session.results.size()));
+    m_lblStatFreqSpan->setText(tr("%1 GHz").arg(freqSpanVal, 0, 'f', 3));
+
+    // Update Report Text Edit
+    if (m_txtReportPreview) {
+        m_txtReportPreview->clear();
+        m_txtReportPreview->append(tr("=================================================="));
+        m_txtReportPreview->append(tr("          AMAS ANTENNA MEASUREMENT REPORT         "));
+        m_txtReportPreview->append(tr("=================================================="));
+        m_txtReportPreview->append(tr("Session ID: %1").arg(QString::fromStdString(session.sessionName)));
+        m_txtReportPreview->append(tr("Timestamp:  %1").arg(QString::fromStdString(session.timestamp)));
+        m_txtReportPreview->append(tr("Operator:   %1").arg(QString::fromStdString(session.metadata.operatorName)));
+        m_txtReportPreview->append(tr("Frequency band: %1").arg(QString::fromStdString(session.bandName)));
+        m_txtReportPreview->append(tr("Measurement Type: %1").arg(QString::fromStdString(session.measurementType)));
+        m_txtReportPreview->append(tr("Peak Gain / Max Mag: %1 dB @ %2 GHz").arg(QString::number(maxMag, 'f', 2)).arg(QString::number(peakFreqVal, 'f', 3)));
+        m_txtReportPreview->append(tr("Average Magnitude:   %1 dB").arg(QString::number(avgMag, 'f', 2)));
+        m_txtReportPreview->append(tr("Average Phase:       %1 deg").arg(QString::number(avgPhase, 'f', 2)));
+        m_txtReportPreview->append(tr("Frequency Span:      %1 GHz").arg(QString::number(freqSpanVal, 'f', 3)));
+        m_txtReportPreview->append(tr("Data Points:         %1").arg(session.results.size()));
+        m_txtReportPreview->append(tr("Calibration state:   %1").arg(QString::fromStdString(session.calibrationFile)));
+        m_txtReportPreview->append(tr("=================================================="));
+    }
+
     // Update Data Table
     m_dataTable->setRowCount(0);
-    m_dataTable->setRowCount(session.results.size());
+    m_dataTable->setRowCount(static_cast<int>(session.results.size()));
     
     auto setCell = [this](int r, int c, double val) {
         auto *cellItem = new QTableWidgetItem();

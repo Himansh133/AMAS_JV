@@ -22,6 +22,15 @@ public:
     QString lastMeasurement() const;
     QString applicationVersion() const;
 
+    QString activeSession() const;
+    QString lastMeasurementTime() const;
+    int connectedDeviceCount() const;
+    QString vnaResource() const;
+    QString vnaFirmware() const;
+    QString positionerPort() const;
+    QString positionerSlaveId() const;
+    int currentProfilePoints() const;
+
 signals:
     void dashboardUpdated();
 

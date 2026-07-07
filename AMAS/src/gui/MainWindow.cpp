@@ -35,6 +35,12 @@ MainWindow::MainWindow(std::shared_ptr<MeasurementController> controller, QWidge
     createToolBars();
     createCentralWidget();
 
+    // Establish presenter status bar synchronization
+    connect(m_presenter, &MeasurementPresenter::stateChanged, this, &MainWindow::updateStatusBar);
+    connect(m_presenter, &MeasurementPresenter::currentProfileChanged, this, &MainWindow::updateStatusBar);
+    connect(m_presenter, &MeasurementPresenter::deviceConnectionChanged, this, &MainWindow::updateStatusBar);
+    updateStatusBar();
+
     // Restore state using WindowStateManager
     int activePage = 0;
     m_windowStateMgr->restoreState(this, activePage);
@@ -238,6 +244,7 @@ void MainWindow::createCentralWidget() {
     // Index 5
     auto *profiles = new ProfileManagerPage(m_presenter->profiles(), this);
     m_stackedWidget->addWidget(profiles);
+    connect(profiles, &ProfileManagerPage::editRequested, this, &MainWindow::showMeasurementSetup);
 
     // Index 6: Settings placeholder
     QStringList titles = { tr("Settings") };
@@ -313,5 +320,33 @@ void MainWindow::showMeasurementProgress() { m_stackedWidget->setCurrentIndex(3)
 void MainWindow::showResults() { m_stackedWidget->setCurrentIndex(4); }
 void MainWindow::showProfiles() { m_stackedWidget->setCurrentIndex(5); }
 void MainWindow::showSettings() { m_stackedWidget->setCurrentIndex(6); }
+
+void MainWindow::updateStatusBar() {
+    // 1. Active Profile
+    QString profName = QString::fromStdString(m_presenter->currentProfile().profileName);
+    m_lblProfile->setText(tr("Profile: %1").arg(profName.isEmpty() ? tr("None Selected") : profName));
+
+    // 2. Hardware Status
+    bool vna = m_presenter->controller()->isVnaConnected();
+    bool pos = m_presenter->controller()->isPositionerConnected();
+    QString hwStr;
+    if (vna && pos) {
+        hwStr = tr("VNA Connected | Pos Connected");
+    } else if (vna) {
+        hwStr = tr("VNA Connected | Pos Offline");
+    } else if (pos) {
+        hwStr = tr("VNA Offline | Pos Connected");
+    } else {
+        hwStr = tr("VNA Offline | Pos Offline");
+    }
+    m_lblHardware->setText(tr("Hardware: %1").arg(hwStr));
+
+    // 3. Current Session
+    QString sessName = QString::fromStdString(m_presenter->controller()->getLatestSession().sessionName);
+    m_lblProject->setText(tr("Session: %1").arg(sessName.isEmpty() ? tr("None") : sessName));
+
+    // 4. System State
+    m_lblAppState->setText(tr("State: %1").arg(m_presenter->systemState()));
+}
 
 } // namespace AMAS

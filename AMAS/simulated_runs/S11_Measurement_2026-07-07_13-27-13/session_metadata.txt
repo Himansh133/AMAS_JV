@@ -1,0 +1,11 @@
+# AMAS Measurement Session Summary
+sessionName=S11 Measurement
+measurementType=S11 Measurement
+timestamp=2026-07-07_13-27-13
+bandName=Custom Band
+calibrationFile=
+outputFolder=
+operatorName=Engineer
+notes=
+antennaModel=AUT-001
+resultsCount=7619

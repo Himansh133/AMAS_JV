@@ -71,6 +71,13 @@ ProfileManagerPage::ProfileManagerPage(ProfilePresenter *presenter, QWidget *par
     connect(m_btnDelete, &QPushButton::clicked, this, &ProfileManagerPage::onDeleteClicked);
     connect(m_btnRefresh, &QPushButton::clicked, this, &ProfileManagerPage::refreshProfileList);
     connect(m_btnOpen, &QPushButton::clicked, this, &ProfileManagerPage::onOpenClicked);
+    connect(m_btnEdit, &QPushButton::clicked, this, [this]() {
+        onOpenClicked();
+        emit editRequested();
+    });
+
+    // Reactively refresh profile explorer when updates occur in backend
+    connect(m_presenter, &ProfilePresenter::profilesChanged, this, &ProfileManagerPage::refreshProfileList);
 
     // Initial load of profiles
     refreshProfileList();

@@ -8,6 +8,8 @@
 #include <QStyle>
 #include <QScrollBar>
 #include <QScrollArea>
+#include <QFileDialog>
+#include <QMessageBox>
 
 namespace AMAS {
 
@@ -88,6 +90,7 @@ MeasurementProgressPage::MeasurementProgressPage(ProgressPresenter *presenter, Q
     connect(m_btnResume, &QPushButton::clicked, this, &MeasurementProgressPage::onResumeClicked);
     connect(m_btnStop, &QPushButton::clicked, this, &MeasurementProgressPage::onStopClicked);
     connect(m_btnAbort, &QPushButton::clicked, this, &MeasurementProgressPage::onAbortClicked);
+    connect(m_btnExport, &QPushButton::clicked, this, &MeasurementProgressPage::onExportClicked);
 
     connect(m_presenter, &ProgressPresenter::measurementStarted, this, &MeasurementProgressPage::onStartClicked);
     connect(m_presenter, &ProgressPresenter::measurementProgressUpdated, this, &MeasurementProgressPage::updateProgress);
@@ -363,6 +366,14 @@ void MeasurementProgressPage::onStartClicked() {
     m_btnResume->setEnabled(false);
     m_btnStop->setEnabled(true);
     m_btnAbort->setEnabled(true);
+
+    // Update info bar labels with dynamic values
+    m_lblMeasType->setText(m_presenter->getMeasurementName());
+    m_lblOperator->setText(m_presenter->getOperatorName());
+    m_lblSessionId->setText(m_presenter->getSessionId());
+    m_lblProfile->setText(m_presenter->getProfileName());
+    m_lblCal->setText(m_presenter->getCalibrationFile());
+    m_lblStartTime->setText(m_presenter->getStartTime());
 }
 
 void MeasurementProgressPage::onPauseClicked() {
@@ -404,6 +415,15 @@ void MeasurementProgressPage::handleMeasurementFinished(bool success) {
         appendLogMessage(tr("[SUCCESS] Coordinated measurement finished successfully."));
     } else {
         appendLogMessage(tr("[ERROR] Coordinated measurement sweep stopped or aborted."));
+    }
+}
+
+void MeasurementProgressPage::onExportClicked() {
+    QString fileName = QFileDialog::getSaveFileName(this, tr("Export Measurement Session"),
+                                                    "", tr("Markdown (*.md);;HTML (*.html);;CSV (*.csv);;All Files (*)"));
+    if (!fileName.isEmpty()) {
+        m_presenter->exportSession(fileName);
+        QMessageBox::information(this, tr("Export Data"), tr("Data exported successfully to %1").arg(fileName));
     }
 }
 

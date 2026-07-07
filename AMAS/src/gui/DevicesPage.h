@@ -28,6 +28,7 @@ private:
 
     // VNA Panel Widgets
     QLabel *m_lblVnaStatus;
+    QLabel *m_indVnaStatus;
     QPushButton *m_btnVnaConnect;
     QPushButton *m_btnVnaDisconnect;
     QPushButton *m_btnVnaRefresh;
@@ -35,6 +36,7 @@ private:
 
     // Positioner Panel Widgets
     QLabel *m_lblPosStatus;
+    QLabel *m_indPosStatus;
     QPushButton *m_btnPosConnect;
     QPushButton *m_btnPosDisconnect;
     QPushButton *m_btnPosHome;
@@ -61,6 +63,8 @@ private:
 private slots:
     void onConnectClicked();
     void onDisconnectClicked();
+    void onRefreshClicked();
+    void onIdentifyVnaClicked();
     void updateConnectionStatus(bool vnaConnected, bool posConnected);
     void appendLogMessage(const QString &msg);
 

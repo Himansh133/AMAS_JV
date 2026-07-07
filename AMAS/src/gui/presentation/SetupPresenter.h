@@ -2,11 +2,13 @@
 #define AMAS_SETUPPRESENTER_H
 
 #include <QObject>
+#include <memory>
 #include "measurement/MeasurementProfile.h"
 
 namespace AMAS {
 
 class MeasurementPresenter;
+class MeasurementController;
 
 class SetupPresenter : public QObject {
     Q_OBJECT
@@ -19,6 +21,7 @@ public:
     MeasurementProfile getProfile() const;
 
     QStringList getAvailableCalibrations() const;
+    std::shared_ptr<MeasurementController> controller() const;
 
 signals:
     void profileUpdated(const MeasurementProfile &profile);

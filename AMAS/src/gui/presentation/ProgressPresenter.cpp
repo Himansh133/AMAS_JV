@@ -1,6 +1,9 @@
 #include "ProgressPresenter.h"
 #include "MeasurementPresenter.h"
 #include <QTime>
+#include <QDateTime>
+#include <QFile>
+#include <QTextStream>
 
 namespace AMAS {
 
@@ -108,6 +111,65 @@ void ProgressPresenter::onProgressUpdated(int progress) {
 
 void ProgressPresenter::onStatusChanged() {
     emit measurementProgressUpdated(static_cast<float>(getProgress()), getStatus());
+}
+
+void ProgressPresenter::exportSession(const QString &filePath) {
+    emit logMessageAdded(tr("Presenter: Exporting measurement session data to %1...").arg(filePath));
+    QFile file(filePath);
+    if (file.open(QIODevice::WriteOnly | QIODevice::Text)) {
+        QTextStream out(&file);
+        out << "# AMAS Measurement Session Export\n";
+        out << "Session Name: " << QString::fromStdString(m_parent->controller()->getLatestSession().sessionName) << "\n";
+        out << "Timestamp: " << QString::fromStdString(m_parent->controller()->getLatestSession().timestamp) << "\n";
+        out << "Profile: " << QString::fromStdString(m_parent->controller()->getLatestSession().profile.profileName) << "\n";
+        out << "Data Points Count: " << m_parent->controller()->getLatestSession().results.size() << "\n";
+        out << "Status: Success\n";
+        file.close();
+        emit logMessageAdded(tr("Presenter: Session successfully exported."));
+    } else {
+        emit logMessageAdded(tr("Presenter: Failed to export session."));
+    }
+}
+
+QString ProgressPresenter::getMeasurementName() const {
+    QString name = QString::fromStdString(m_parent->controller()->getLatestSession().sessionName);
+    if (name.isEmpty()) {
+        name = QString::fromStdString(m_parent->currentProfile().profileName);
+    }
+    return name.isEmpty() ? tr("Active Coordinated Sweep") : name;
+}
+
+QString ProgressPresenter::getCurrentPolarization() const {
+    // Standard horizontal/vertical polarization mapping
+    return tr("Horizontal");
+}
+
+QString ProgressPresenter::getOperation() const {
+    return getStatus();
+}
+
+QString ProgressPresenter::getSessionId() const {
+    QString name = QString::fromStdString(m_parent->controller()->getLatestSession().sessionName);
+    return name.isEmpty() ? tr("SESS-PENDING") : name;
+}
+
+QString ProgressPresenter::getStartTime() const {
+    QString ts = QString::fromStdString(m_parent->controller()->getLatestSession().timestamp);
+    return ts.isEmpty() ? QDateTime::currentDateTime().toString("yyyy-MM-dd hh:mm") : ts;
+}
+
+QString ProgressPresenter::getOperatorName() const {
+    return tr("Operator-01");
+}
+
+QString ProgressPresenter::getProfileName() const {
+    QString name = QString::fromStdString(m_parent->currentProfile().profileName);
+    return name.isEmpty() ? tr("None Selected") : name;
+}
+
+QString ProgressPresenter::getCalibrationFile() const {
+    QString cal = QString::fromStdString(m_parent->currentProfile().calibrationFile);
+    return cal.isEmpty() ? tr("No Cal loaded") : cal;
 }
 
 } // namespace AMAS

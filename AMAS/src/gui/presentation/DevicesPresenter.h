@@ -25,6 +25,18 @@ public:
     QString vnaDeviceName() const;
     QString positionerDeviceName() const;
 
+    QString vnaName() const;
+    QString positionerName() const;
+    QString lastConnectionAttempt() const;
+    QString hardwareState() const;
+    QString deviceIdentification() const;
+
+    void identifyVna();
+    void identifyPositioner();
+    void refreshDevices();
+    void homePositioner();
+    void movePositioner(float angle);
+
 signals:
     void connectionStatusChanged(bool vnaConnected, bool posConnected);
     void messageLogged(const QString &message);

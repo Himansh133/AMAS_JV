@@ -18,6 +18,7 @@ public:
     bool loadSession(const QString &sessionFolder, MeasurementSession &outSession);
     bool loadLatestSession(MeasurementSession &outSession);
     bool hasLatestSession() const;
+    MeasurementPresenter* parentPresenter() const { return m_parent; }
 
 signals:
     void sessionLoaded(const QString &sessionName);

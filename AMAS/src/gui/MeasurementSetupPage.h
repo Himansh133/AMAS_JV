@@ -42,14 +42,18 @@ private:
     void updateSummary();
 
     // Section 1 Widgets
+    QLineEdit       *m_txtName;
     NoWheelComboBox *m_comboMeasType;
-    QLabel    *m_lblMeasDesc;
+    QLabel          *m_lblMeasDesc;
 
     // Section 2 Widgets
     NoWheelDoubleSpinBox *m_spinStartFreq;
     NoWheelDoubleSpinBox *m_spinStopFreq;
     NoWheelSpinBox       *m_spinPoints;
     NoWheelComboBox      *m_comboBand;
+    NoWheelDoubleSpinBox *m_spinIfBandwidth;
+    NoWheelDoubleSpinBox *m_spinOutputPower;
+    NoWheelComboBox      *m_comboSweepType;
 
     // Section 3 Widgets
     QLabel      *m_lblCalFile;
@@ -92,8 +96,12 @@ private:
     QPushButton *m_btnStart;
     QPushButton *m_btnCancel;
 
+    bool validateInputs();
+    bool validateInputsSilently() const;
+
 private slots:
     void onSaveClicked();
+    void onValidateClicked();
     void onProfileLoaded(const MeasurementProfile &profile);
     void onCalBrowseClicked();
     void onSetupControlChanged();

@@ -78,6 +78,7 @@ private slots:
     void onResumeClicked();
     void onStopClicked();
     void onAbortClicked();
+    void onExportClicked();
 
     void updateProgress(float progressPercent, const QString &statusMessage);
     void handleMeasurementFinished(bool success);

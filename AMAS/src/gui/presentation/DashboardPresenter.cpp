@@ -39,11 +39,57 @@ bool DashboardPresenter::isPositionerConnected() const {
 }
 
 QString DashboardPresenter::lastMeasurement() const {
-    return tr("Gain Sweep (Horn 8-12 GHz)");
+    QString name = QString::fromStdString(m_parent->controller()->getLatestSession().sessionName);
+    return name.isEmpty() ? tr("None") : name;
 }
 
 QString DashboardPresenter::applicationVersion() const {
     return "1.0.0";
+}
+
+QString DashboardPresenter::activeSession() const {
+    QString name = QString::fromStdString(m_parent->controller()->getLatestSession().sessionName);
+    return name.isEmpty() ? tr("No Active Session") : name;
+}
+
+QString DashboardPresenter::lastMeasurementTime() const {
+    QString ts = QString::fromStdString(m_parent->controller()->getLatestSession().timestamp);
+    return ts.isEmpty() ? tr("N/A") : ts;
+}
+
+int DashboardPresenter::connectedDeviceCount() const {
+    int count = 0;
+    if (m_parent->controller()->isVnaConnected()) count++;
+    if (m_parent->controller()->isPositionerConnected()) count++;
+    return count;
+}
+
+QString DashboardPresenter::vnaResource() const {
+    std::string res = m_parent->controller()->getVnaResource();
+    return res.empty() ? tr("Offline") : QString::fromStdString(res);
+}
+
+QString DashboardPresenter::vnaFirmware() const {
+    if (m_parent->controller()->isVnaConnected()) {
+        return "A.10.15";
+    }
+    return tr("N/A");
+}
+
+QString DashboardPresenter::positionerPort() const {
+    std::string port = m_parent->controller()->getPositionerPort();
+    return port.empty() ? tr("Offline") : QString::fromStdString(port);
+}
+
+QString DashboardPresenter::positionerSlaveId() const {
+    if (m_parent->controller()->isPositionerConnected()) {
+        return "1";
+    }
+    return tr("N/A");
+}
+
+int DashboardPresenter::currentProfilePoints() const {
+    return m_parent->currentProfile().sweepPoints;
 }
 
 } // namespace AMAS

@@ -19,6 +19,9 @@ public:
     explicit ProfileManagerPage(ProfilePresenter *presenter, QWidget *parent = nullptr);
     ~ProfileManagerPage() override;
 
+signals:
+    void editRequested();
+
 private:
     void createExplorerPanel(QWidget *parent);
     void createWorkspacePanel(QWidget *parent);

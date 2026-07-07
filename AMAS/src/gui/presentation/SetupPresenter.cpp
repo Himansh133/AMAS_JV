@@ -28,4 +28,8 @@ QStringList SetupPresenter::getAvailableCalibrations() const {
     };
 }
 
+std::shared_ptr<MeasurementController> SetupPresenter::controller() const {
+    return m_parent->controller();
+}
+
 } // namespace AMAS

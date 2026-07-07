@@ -1,10 +1,14 @@
 #include "MeasurementSetupPage.h"
 #include "presentation/SetupPresenter.h"
+#include "controllers/MeasurementController.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QGridLayout>
 #include <QFormLayout>
 #include <QStyle>
+#include <QScrollArea>
+#include <QFileDialog>
+#include <QMessageBox>
 #include <QInputDialog>
 #include <cmath>
 
@@ -46,7 +50,7 @@ MeasurementSetupPage::MeasurementSetupPage(SetupPresenter *presenter, QWidget *p
 
     // 5. Sections and Groupboxes (with strict min heights)
     auto *grpType = new QGroupBox(tr("Measurement Type"), scrollContent);
-    grpType->setMinimumHeight(120);
+    grpType->setMinimumHeight(160);
     createMeasTypePanel(grpType);
     scrollLayout->addWidget(grpType);
 
@@ -83,16 +87,60 @@ MeasurementSetupPage::MeasurementSetupPage(SetupPresenter *presenter, QWidget *p
     scrollArea->setWidget(scrollContent);
 
     // Hook presenter slots
+    connect(m_btnLoad, &QPushButton::clicked, this, [this]() {
+        QStringList items;
+        auto profiles = m_presenter->controller()->getProfiles();
+        for (const auto& p : profiles) {
+            items << QString::fromStdString(p.profileName);
+        }
+        if (items.isEmpty()) {
+            QMessageBox::information(this, tr("Load Profile"), tr("No profiles available to load."));
+            return;
+        }
+        bool ok = false;
+        QString select = QInputDialog::getItem(this, tr("Load Profile"), tr("Select profile to load:"), items, 0, false, &ok);
+        if (ok && !select.isEmpty()) {
+            for (const auto& p : profiles) {
+                if (QString::fromStdString(p.profileName) == select) {
+                    m_presenter->controller()->setActiveProfile(p);
+                    onProfileLoaded(p);
+                    break;
+                }
+            }
+        }
+    });
     connect(m_btnSave, &QPushButton::clicked, this, &MeasurementSetupPage::onSaveClicked);
-    connect(m_btnStart, &QPushButton::clicked, this, &MeasurementSetupPage::startRequested);
+    connect(m_btnValidate, &QPushButton::clicked, this, &MeasurementSetupPage::onValidateClicked);
+    connect(m_btnStart, &QPushButton::clicked, this, [this]() {
+        if (validateInputs()) {
+            emit startRequested();
+        }
+    });
     connect(m_presenter, &SetupPresenter::profileUpdated, this, &MeasurementSetupPage::onProfileLoaded);
 
     // Value changes trigger profile updates
+    connect(m_txtName, &QLineEdit::textChanged, this, &MeasurementSetupPage::onSetupControlChanged);
+    connect(m_comboMeasType, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &MeasurementSetupPage::onSetupControlChanged);
+    connect(m_comboBand, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &MeasurementSetupPage::onSetupControlChanged);
     connect(m_spinStartFreq, QOverload<double>::of(&QDoubleSpinBox::valueChanged), this, &MeasurementSetupPage::onSetupControlChanged);
     connect(m_spinStopFreq, QOverload<double>::of(&QDoubleSpinBox::valueChanged), this, &MeasurementSetupPage::onSetupControlChanged);
+    connect(m_spinPoints, QOverload<int>::of(&QSpinBox::valueChanged), this, &MeasurementSetupPage::onSetupControlChanged);
+    connect(m_spinIfBandwidth, QOverload<double>::of(&QDoubleSpinBox::valueChanged), this, &MeasurementSetupPage::onSetupControlChanged);
+    connect(m_spinOutputPower, QOverload<double>::of(&QDoubleSpinBox::valueChanged), this, &MeasurementSetupPage::onSetupControlChanged);
+    connect(m_comboSweepType, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &MeasurementSetupPage::onSetupControlChanged);
+
+    connect(m_spinAzStart, QOverload<double>::of(&QDoubleSpinBox::valueChanged), this, &MeasurementSetupPage::onSetupControlChanged);
+    connect(m_spinAzStop, QOverload<double>::of(&QDoubleSpinBox::valueChanged), this, &MeasurementSetupPage::onSetupControlChanged);
     connect(m_spinAzStep, QOverload<double>::of(&QDoubleSpinBox::valueChanged), this, &MeasurementSetupPage::onSetupControlChanged);
-    connect(m_comboBand, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &MeasurementSetupPage::onSetupControlChanged);
-    connect(m_comboMeasType, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &MeasurementSetupPage::onSetupControlChanged);
+
+    connect(m_spinElStart, QOverload<double>::of(&QDoubleSpinBox::valueChanged), this, &MeasurementSetupPage::onSetupControlChanged);
+    connect(m_spinElStop, QOverload<double>::of(&QDoubleSpinBox::valueChanged), this, &MeasurementSetupPage::onSetupControlChanged);
+    connect(m_spinElStep, QOverload<double>::of(&QDoubleSpinBox::valueChanged), this, &MeasurementSetupPage::onSetupControlChanged);
+
+    connect(m_spinPlStart, QOverload<double>::of(&QDoubleSpinBox::valueChanged), this, &MeasurementSetupPage::onSetupControlChanged);
+    connect(m_spinPlStop, QOverload<double>::of(&QDoubleSpinBox::valueChanged), this, &MeasurementSetupPage::onSetupControlChanged);
+    connect(m_spinPlStep, QOverload<double>::of(&QDoubleSpinBox::valueChanged), this, &MeasurementSetupPage::onSetupControlChanged);
+
     connect(m_btnCalBrowse, &QPushButton::clicked, this, &MeasurementSetupPage::onCalBrowseClicked);
 
     // Initial state loading
@@ -100,12 +148,18 @@ MeasurementSetupPage::MeasurementSetupPage(SetupPresenter *presenter, QWidget *p
 }
 
 void MeasurementSetupPage::createMeasTypePanel(QGroupBox *box) {
-    auto *layout = new QVBoxLayout(box);
+    auto *layout = new QFormLayout(box);
     layout->setContentsMargins(12, 12, 12, 12);
     layout->setSpacing(12);
 
+    m_txtName = new QLineEdit(box);
+    m_txtName->setText(tr("Gain Sweep (Horn 8-12 GHz)"));
+    m_txtName->setMinimumHeight(28);
+    m_txtName->setStyleSheet("color: #FFFFFF; background-color: #1E1E1E; border: 1px solid #3F3F46; padding: 4px;");
+    layout->addRow(tr("Measurement Name:"), m_txtName);
+
     m_comboMeasType = new NoWheelComboBox(box);
-    m_comboMeasType->setMinimumWidth(260);
+    m_comboMeasType->setMinimumHeight(28);
     m_comboMeasType->addItems({
         tr("S11 Measurement"),
         tr("Gain Measurement"),
@@ -115,12 +169,12 @@ void MeasurementSetupPage::createMeasTypePanel(QGroupBox *box) {
         tr("Near Field Scan"),
         tr("Far Field Scan")
     });
-    layout->addWidget(m_comboMeasType);
+    layout->addRow(tr("Measurement Type:"), m_comboMeasType);
 
     m_lblMeasDesc = new QLabel(box);
     m_lblMeasDesc->setWordWrap(true);
     m_lblMeasDesc->setStyleSheet("color: #C8C8C8; font-size: 12px; line-height: 16px;");
-    layout->addWidget(m_lblMeasDesc);
+    layout->addRow(tr("Description:"), m_lblMeasDesc);
 
     connect(m_comboMeasType, QOverload<int>::of(&QComboBox::currentIndexChanged),
             this, &MeasurementSetupPage::onMeasTypeChanged);
@@ -135,19 +189,21 @@ void MeasurementSetupPage::createFreqPanel(QGroupBox *box) {
     auto *lblStart = new QLabel(tr("Start Frequency:"), box);
     layout->addWidget(lblStart, 0, 0);
     m_spinStartFreq = new NoWheelDoubleSpinBox(box);
-    m_spinStartFreq->setRange(0.1, 40.0);
+    m_spinStartFreq->setRange(0.01, 110.0);
     m_spinStartFreq->setSuffix(tr(" GHz"));
     m_spinStartFreq->setDecimals(3);
     m_spinStartFreq->setMinimumWidth(160);
+    m_spinStartFreq->setMinimumHeight(28);
     layout->addWidget(m_spinStartFreq, 0, 1);
 
     auto *lblStop = new QLabel(tr("Stop Frequency:"), box);
     layout->addWidget(lblStop, 0, 2);
     m_spinStopFreq = new NoWheelDoubleSpinBox(box);
-    m_spinStopFreq->setRange(0.1, 40.0);
+    m_spinStopFreq->setRange(0.01, 110.0);
     m_spinStopFreq->setSuffix(tr(" GHz"));
     m_spinStopFreq->setDecimals(3);
     m_spinStopFreq->setMinimumWidth(160);
+    m_spinStopFreq->setMinimumHeight(28);
     layout->addWidget(m_spinStopFreq, 0, 3);
 
     // Row 1: Points & Band Preset
@@ -157,12 +213,14 @@ void MeasurementSetupPage::createFreqPanel(QGroupBox *box) {
     m_spinPoints->setRange(1, 10001);
     m_spinPoints->setValue(401);
     m_spinPoints->setMinimumWidth(160);
+    m_spinPoints->setMinimumHeight(28);
     layout->addWidget(m_spinPoints, 1, 1);
 
     auto *lblBand = new QLabel(tr("Frequency Band:"), box);
     layout->addWidget(lblBand, 1, 2);
     m_comboBand = new NoWheelComboBox(box);
     m_comboBand->setMinimumWidth(260);
+    m_comboBand->setMinimumHeight(28);
     m_comboBand->addItems({
         tr("8–12 GHz"),
         tr("12–18 GHz"),
@@ -170,6 +228,41 @@ void MeasurementSetupPage::createFreqPanel(QGroupBox *box) {
         tr("26.5–40 GHz")
     });
     layout->addWidget(m_comboBand, 1, 3);
+
+    // Row 2: IF Bandwidth & Output Power
+    auto *lblIfBw = new QLabel(tr("IF Bandwidth:"), box);
+    layout->addWidget(lblIfBw, 2, 0);
+    m_spinIfBandwidth = new NoWheelDoubleSpinBox(box);
+    m_spinIfBandwidth->setRange(1.0, 10000000.0);
+    m_spinIfBandwidth->setValue(1000.0);
+    m_spinIfBandwidth->setSuffix(tr(" Hz"));
+    m_spinIfBandwidth->setDecimals(1);
+    m_spinIfBandwidth->setMinimumWidth(160);
+    m_spinIfBandwidth->setMinimumHeight(28);
+    layout->addWidget(m_spinIfBandwidth, 2, 1);
+
+    auto *lblPower = new QLabel(tr("Output Power:"), box);
+    layout->addWidget(lblPower, 2, 2);
+    m_spinOutputPower = new NoWheelDoubleSpinBox(box);
+    m_spinOutputPower->setRange(-100.0, 30.0);
+    m_spinOutputPower->setValue(-10.0);
+    m_spinOutputPower->setSuffix(tr(" dBm"));
+    m_spinOutputPower->setDecimals(1);
+    m_spinOutputPower->setMinimumWidth(160);
+    m_spinOutputPower->setMinimumHeight(28);
+    layout->addWidget(m_spinOutputPower, 2, 3);
+
+    // Row 3: Sweep Type
+    auto *lblSweepType = new QLabel(tr("Sweep Type:"), box);
+    layout->addWidget(lblSweepType, 3, 0);
+    m_comboSweepType = new NoWheelComboBox(box);
+    m_comboSweepType->setMinimumWidth(160);
+    m_comboSweepType->setMinimumHeight(28);
+    m_comboSweepType->addItems({
+        tr("Linear"),
+        tr("Logarithmic")
+    });
+    layout->addWidget(m_comboSweepType, 3, 1);
 
     // Column stretches
     layout->setColumnStretch(1, 1);
@@ -501,12 +594,16 @@ void MeasurementSetupPage::updateSummary() {
 }
 
 void MeasurementSetupPage::onSaveClicked() {
-    MeasurementProfile profile;
-    profile.profileName = m_comboMeasType->currentText().toStdString();
+    if (!validateInputs()) return;
+
+    MeasurementProfile profile = m_presenter->getProfile();
+    profile.profileName = m_txtName->text().toStdString();
     profile.measurementType = m_comboMeasType->currentText().toStdString();
     profile.startFrequencyHz = m_spinStartFreq->value() * 1e9;
     profile.stopFrequencyHz = m_spinStopFreq->value() * 1e9;
     profile.sweepPoints = m_spinPoints->value();
+    profile.ifBandwidthHz = m_spinIfBandwidth->value();
+    profile.outputPowerDbm = m_spinOutputPower->value();
     profile.calibrationFile = m_lblCalFile->text().toStdString();
 
     profile.positioner.usePositioner = true;
@@ -516,14 +613,30 @@ void MeasurementSetupPage::onSaveClicked() {
     profile.positioner.settleTimeMs = 150;
 
     m_presenter->updateProfile(profile);
+    bool saved = m_presenter->controller()->saveProfile(profile);
+    if (saved) {
+        QMessageBox::information(this, tr("Save Profile"), tr("Profile '%1' saved successfully.").arg(m_txtName->text()));
+    } else {
+        QMessageBox::warning(this, tr("Save Profile"), tr("Failed to save profile."));
+    }
+}
+
+void MeasurementSetupPage::onValidateClicked() {
+    if (validateInputs()) {
+        QMessageBox::information(this, tr("Validate Configuration"), tr("Configuration is valid and ready for measurement."));
+    }
 }
 
 void MeasurementSetupPage::onProfileLoaded(const MeasurementProfile &profile) {
     // Block signals to prevent infinite update loop
     blockSignals(true);
+    m_txtName->setText(QString::fromStdString(profile.profileName));
+    m_comboMeasType->setCurrentText(QString::fromStdString(profile.measurementType));
     m_spinStartFreq->setValue(profile.startFrequencyHz / 1e9);
     m_spinStopFreq->setValue(profile.stopFrequencyHz / 1e9);
     m_spinPoints->setValue(profile.sweepPoints);
+    m_spinIfBandwidth->setValue(profile.ifBandwidthHz);
+    m_spinOutputPower->setValue(profile.outputPowerDbm);
     m_lblCalFile->setText(QString::fromStdString(profile.calibrationFile));
 
     m_spinAzStart->setValue(profile.positioner.startAngleDeg);
@@ -547,12 +660,16 @@ void MeasurementSetupPage::onCalBrowseClicked() {
 }
 
 void MeasurementSetupPage::onSetupControlChanged() {
-    MeasurementProfile profile;
-    profile.profileName = m_comboMeasType->currentText().toStdString();
+    if (!validateInputsSilently()) return;
+
+    MeasurementProfile profile = m_presenter->getProfile();
+    profile.profileName = m_txtName->text().toStdString();
     profile.measurementType = m_comboMeasType->currentText().toStdString();
     profile.startFrequencyHz = m_spinStartFreq->value() * 1e9;
     profile.stopFrequencyHz = m_spinStopFreq->value() * 1e9;
     profile.sweepPoints = m_spinPoints->value();
+    profile.ifBandwidthHz = m_spinIfBandwidth->value();
+    profile.outputPowerDbm = m_spinOutputPower->value();
     profile.calibrationFile = m_lblCalFile->text().toStdString();
 
     profile.positioner.usePositioner = true;
@@ -563,6 +680,54 @@ void MeasurementSetupPage::onSetupControlChanged() {
 
     m_presenter->updateProfile(profile);
     updateSummary();
+}
+
+bool MeasurementSetupPage::validateInputs() {
+    if (m_txtName->text().isEmpty()) {
+        QMessageBox::warning(this, tr("Validation Error"), tr("Measurement Name cannot be empty."));
+        return false;
+    }
+    if (m_spinStartFreq->value() <= 0) {
+        QMessageBox::warning(this, tr("Validation Error"), tr("Start frequency must be positive."));
+        return false;
+    }
+    if (m_spinStopFreq->value() <= 0) {
+        QMessageBox::warning(this, tr("Validation Error"), tr("Stop frequency must be positive."));
+        return false;
+    }
+    if (m_spinStartFreq->value() >= m_spinStopFreq->value()) {
+        QMessageBox::warning(this, tr("Validation Error"), tr("Start frequency must be less than Stop frequency."));
+        return false;
+    }
+    if (m_spinPoints->value() <= 0) {
+        QMessageBox::warning(this, tr("Validation Error"), tr("Sweep points must be positive."));
+        return false;
+    }
+    if (m_spinIfBandwidth->value() <= 0) {
+        QMessageBox::warning(this, tr("Validation Error"), tr("IF Bandwidth must be positive."));
+        return false;
+    }
+    if (m_spinAzStep->value() <= 0) {
+        QMessageBox::warning(this, tr("Validation Error"), tr("Azimuth step size must be positive."));
+        return false;
+    }
+    if (m_spinOutputPower->value() < -100.0 || m_spinOutputPower->value() > 30.0) {
+        QMessageBox::warning(this, tr("Validation Error"), tr("Output power must be between -100 dBm and +30 dBm."));
+        return false;
+    }
+    return true;
+}
+
+bool MeasurementSetupPage::validateInputsSilently() const {
+    if (m_txtName->text().isEmpty()) return false;
+    if (m_spinStartFreq->value() <= 0) return false;
+    if (m_spinStopFreq->value() <= 0) return false;
+    if (m_spinStartFreq->value() >= m_spinStopFreq->value()) return false;
+    if (m_spinPoints->value() <= 0) return false;
+    if (m_spinIfBandwidth->value() <= 0) return false;
+    if (m_spinAzStep->value() <= 0) return false;
+    if (m_spinOutputPower->value() < -100.0 || m_spinOutputPower->value() > 30.0) return false;
+    return true;
 }
 
 } // namespace AMAS

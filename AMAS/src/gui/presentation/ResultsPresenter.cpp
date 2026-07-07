@@ -14,11 +14,19 @@ QStringList ResultsPresenter::getCompletedSessions() const {
 }
 
 bool ResultsPresenter::loadSession(const QString &sessionFolder, MeasurementSession &outSession) {
-    outSession.sessionName = sessionFolder.toStdString();
+    std::string folderStr = sessionFolder.toStdString();
+    if (!m_parent->controller()->getLatestSession().sessionName.empty() &&
+        m_parent->controller()->getLatestSession().sessionName == folderStr) {
+        outSession = m_parent->controller()->getLatestSession();
+        emit sessionLoaded(sessionFolder);
+        return true;
+    }
+
+    outSession.sessionName = folderStr;
     outSession.timestamp = "2026-07-01 10:15";
     outSession.bandName = "8-12 GHz";
     outSession.calibrationFile = "calchamber8_12ghz.sta";
-    outSession.outputFolder = sessionFolder.toStdString();
+    outSession.outputFolder = folderStr;
     outSession.metadata.operatorName = "Operator-01";
     outSession.metadata.notes = "Coordinated horn antenna scan.";
 

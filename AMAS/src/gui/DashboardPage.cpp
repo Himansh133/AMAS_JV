@@ -86,17 +86,25 @@ void DashboardPage::setupTopRow() {
 }
 
 void DashboardPage::updateDashboardState() {
-    m_cardVna->setConnectionStatus(m_presenter->isVnaConnected(), m_presenter->isVnaConnected() ? tr("Connected") : tr("Disconnected"));
-    m_cardPositioner->setConnectionStatus(m_presenter->isPositionerConnected(), m_presenter->isPositionerConnected() ? tr("Connected") : tr("Disconnected"));
-    m_cardProfile->setProfile(m_presenter->currentProfileName(), m_presenter->calibrationStatus(), 401);
+    bool vnaConnected = m_presenter->isVnaConnected();
+    m_cardVna->setConnectionStatus(vnaConnected, vnaConnected ? tr("Connected") : tr("Disconnected"));
+    m_cardVna->setDetails(m_presenter->vnaResource(), tr("Firmware:"), m_presenter->vnaFirmware());
+
+    bool posConnected = m_presenter->isPositionerConnected();
+    m_cardPositioner->setConnectionStatus(posConnected, posConnected ? tr("Connected") : tr("Disconnected"));
+    m_cardPositioner->setDetails(m_presenter->positionerPort(), tr("Slave ID:"), m_presenter->positionerSlaveId());
+
+    m_cardProfile->setProfile(m_presenter->currentProfileName(), m_presenter->calibrationStatus(), m_presenter->currentProfilePoints());
 
     m_logList->clear();
-    m_logList->addItem(tr("Application Version: %1").arg(m_presenter->applicationVersion()));
+    m_logList->addItem(tr("Software Version: %1").arg(m_presenter->applicationVersion()));
+    m_logList->addItem(tr("Connected Device Count: %1").arg(m_presenter->connectedDeviceCount()));
     m_logList->addItem(tr("System Ready Status: %1").arg(m_presenter->isSystemReady() ? tr("Ready") : tr("Not Ready")));
     m_logList->addItem(tr("Measurement State: %1").arg(m_presenter->systemState()));
-    m_logList->addItem(tr("Current Profile: %1").arg(m_presenter->currentProfileName()));
+    m_logList->addItem(tr("Current Measurement Profile: %1").arg(m_presenter->currentProfileName()));
     m_logList->addItem(tr("Calibration Status: %1").arg(m_presenter->calibrationStatus()));
-    m_logList->addItem(tr("Last Measurement: %1").arg(m_presenter->lastMeasurement()));
+    m_logList->addItem(tr("Active Session: %1").arg(m_presenter->activeSession()));
+    m_logList->addItem(tr("Last Measurement Time: %1").arg(m_presenter->lastMeasurementTime()));
 }
 
 void DashboardPage::setupQuickActions() {

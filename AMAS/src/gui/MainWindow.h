@@ -48,6 +48,7 @@ private:
 
     // Clock updater
     void updateClock();
+    void updateStatusBar();
 
     // Framework Managers
     ActionManager       *m_actionMgr;

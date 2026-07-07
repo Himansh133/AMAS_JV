@@ -14,6 +14,7 @@
 namespace AMAS {
 
 class ResultsPresenter;
+class MeasurementPlotWidget;
 struct MeasurementSession;
 
 class ResultsPage : public QWidget {
@@ -49,8 +50,26 @@ private:
     QLabel *m_lblSumStatus;
 
     // Tabs
-    QTabWidget  *m_tabWidget;
+    QTabWidget   *m_tabWidget;
     QTableWidget *m_dataTable;
+
+    // Dynamic Stats labels
+    QLabel *m_lblStatMinMag;
+    QLabel *m_lblStatMaxMag;
+    QLabel *m_lblStatAvgMag;
+    QLabel *m_lblStatMinPhase;
+    QLabel *m_lblStatMaxPhase;
+    QLabel *m_lblStatAvgPhase;
+    QLabel *m_lblStatPeakFreq;
+    QLabel *m_lblStatSamples;
+    QLabel *m_lblStatFreqSpan;
+
+    // Plots
+    MeasurementPlotWidget *m_magPlot;
+    MeasurementPlotWidget *m_phasePlot;
+
+    // Report Preview Text Edit
+    QTextEdit *m_txtReportPreview;
 
     // Status bar labels
     QLabel *m_statusLoaded;
@@ -59,6 +78,9 @@ private:
     QLabel *m_statusUpdate;
 
     QSplitter *m_splitter;
+
+    void refreshBrowser();
+    void onSessionChanged();
 
 private slots:
     void onSessionSelected(QTreeWidgetItem *item, int column);

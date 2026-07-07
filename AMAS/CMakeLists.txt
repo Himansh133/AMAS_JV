@@ -10,7 +10,7 @@ set(CMAKE_AUTORCC ON)
 set(CMAKE_AUTOUIC ON)
 
 # Find Qt 6 libraries
-find_package(Qt6 COMPONENTS Core Widgets SerialPort)
+find_package(Qt6 COMPONENTS Core Widgets SerialPort Charts)
 
 # Auto-detect target bitness and choose VISA defaults
 if(CMAKE_SIZEOF_VOID_P EQUAL 4)
@@ -158,6 +158,8 @@ set(SOURCES
     src/gui/widgets/QuickActionButton.h
     src/gui/widgets/QuickActionButton.cpp
     src/gui/widgets/NoWheelWidgets.h
+    src/gui/widgets/MeasurementPlotWidget.h
+    src/gui/widgets/MeasurementPlotWidget.cpp
 )
 
 
@@ -169,6 +171,7 @@ if(Qt6_FOUND)
         Qt6::Core
         Qt6::Widgets
         Qt6::SerialPort
+        Qt6::Charts
         VISA::VISA
     )
 else()

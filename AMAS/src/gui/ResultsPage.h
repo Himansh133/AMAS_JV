@@ -10,12 +10,14 @@
 #include <QHBoxLayout>
 #include <QTextEdit>
 #include <QSplitter>
+#include "measurement/MeasurementSession.h"
 
 namespace AMAS {
 
 class ResultsPresenter;
 class MeasurementPlotWidget;
-struct MeasurementSession;
+class PolarPlotWidget;
+class SmithChartWidget;
 
 class ResultsPage : public QWidget {
     Q_OBJECT
@@ -29,7 +31,10 @@ private:
 
     // Tab content creation helpers
     QWidget* createOverviewTab(QWidget *parent);
-    QWidget* createGraphsTab(QWidget *parent);
+    QWidget* createMagnitudeTab(QWidget *parent);
+    QWidget* createPhaseTab(QWidget *parent);
+    QWidget* createPolarTab(QWidget *parent);
+    QWidget* createSmithTab(QWidget *parent);
     QWidget* createTableTab(QWidget *parent);
     QWidget* createStatisticsTab(QWidget *parent);
     QWidget* createReportTab(QWidget *parent);
@@ -39,6 +44,10 @@ private:
 
     // Sidebar widgets
     QTreeWidget *m_treeBrowser;
+    QTableWidget *m_tableMarkers;
+    QPushButton *m_btnAddMarker;
+    QPushButton *m_btnRemoveMarker;
+    QPushButton *m_btnClearMarkers;
 
     // Top Summary widgets
     QLabel *m_lblSumName;
@@ -67,6 +76,8 @@ private:
     // Plots
     MeasurementPlotWidget *m_magPlot;
     MeasurementPlotWidget *m_phasePlot;
+    PolarPlotWidget       *m_polarPlot;
+    SmithChartWidget      *m_smithChart;
 
     // Report Preview Text Edit
     QTextEdit *m_txtReportPreview;
@@ -84,9 +95,24 @@ private:
 
 private slots:
     void onSessionSelected(QTreeWidgetItem *item, int column);
+    void onAddMarkerClicked();
+    void onRemoveMarkerClicked();
+    void onClearMarkersClicked();
 
 private:
     ResultsPresenter *m_presenter;
+
+    struct EngineeringMarker {
+        int id;
+        double frequencyHz;
+        double magnitudeDb;
+        double phaseDeg;
+        double angleDeg;
+        int pointIndex;
+    };
+    std::vector<EngineeringMarker> m_markers;
+    MeasurementSession m_currentSession;
+    void updateMarkersUI();
 };
 
 } // namespace AMAS

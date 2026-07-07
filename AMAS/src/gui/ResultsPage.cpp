@@ -3,6 +3,8 @@
 #include "presentation/MeasurementPresenter.h"
 #include "measurement/MeasurementSession.h"
 #include "widgets/MeasurementPlotWidget.h"
+#include "widgets/PolarPlotWidget.h"
+#include "widgets/SmithChartWidget.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QGridLayout>
@@ -73,6 +75,11 @@ ResultsPage::ResultsPage(ResultsPresenter *presenter, QWidget *parent)
     connect(m_treeBrowser, &QTreeWidget::itemDoubleClicked, this, &ResultsPage::onSessionSelected);
     connect(m_presenter->parentPresenter(), &MeasurementPresenter::stateChanged, this, &ResultsPage::onSessionChanged);
 
+    // Bind Marker Control signals
+    connect(m_btnAddMarker, &QPushButton::clicked, this, &ResultsPage::onAddMarkerClicked);
+    connect(m_btnRemoveMarker, &QPushButton::clicked, this, &ResultsPage::onRemoveMarkerClicked);
+    connect(m_btnClearMarkers, &QPushButton::clicked, this, &ResultsPage::onClearMarkersClicked);
+
     // Bottom Status Bar
     auto *statusBarLayout = new QHBoxLayout();
     createBottomStatusBar(statusBarLayout);
@@ -99,8 +106,49 @@ void ResultsPage::createBrowserPanel(QWidget *parent) {
     m_treeBrowser = new QTreeWidget(parent);
     m_treeBrowser->setHeaderLabel(tr("Measurements"));
     m_treeBrowser->setMinimumWidth(220);
+    m_treeBrowser->setMinimumHeight(150);
+    layout->addWidget(m_treeBrowser, 2);
 
-    layout->addWidget(m_treeBrowser);
+    // Markers Section
+    auto *lblMarkers = new QLabel(tr("Active Markers"), parent);
+    lblMarkers->setStyleSheet("font-weight: bold; color: #FFFFFF; font-size: 14px; margin-top: 10px;");
+    layout->addWidget(lblMarkers);
+
+    m_tableMarkers = new QTableWidget(0, 4, parent);
+    m_tableMarkers->setHorizontalHeaderLabels({ tr("ID"), tr("Freq (GHz)"), tr("Mag (dB)"), tr("Phase (°)") });
+    m_tableMarkers->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
+    m_tableMarkers->verticalHeader()->setVisible(false);
+    m_tableMarkers->setSelectionBehavior(QAbstractItemView::SelectRows);
+    m_tableMarkers->setEditTriggers(QAbstractItemView::NoEditTriggers);
+    m_tableMarkers->setAlternatingRowColors(true);
+    m_tableMarkers->setStyleSheet(
+        "QTableWidget { background-color: #2D2D30; alternate-background-color: #252526; border: 1px solid #3F3F46; color: #FFFFFF; }"
+    );
+    m_tableMarkers->setMinimumHeight(120);
+    layout->addWidget(m_tableMarkers, 1);
+
+    auto *btnLayout = new QHBoxLayout();
+    btnLayout->setSpacing(6);
+
+    m_btnAddMarker = new QPushButton(tr("+ Add"), parent);
+    m_btnRemoveMarker = new QPushButton(tr("- Del"), parent);
+    m_btnClearMarkers = new QPushButton(tr("Clear"), parent);
+
+    auto styleBtn = [](QPushButton *btn) {
+        btn->setStyleSheet(
+            "QPushButton { background-color: #2D2D30; border: 1px solid #3F3F46; color: #FFFFFF; font-size: 11px; padding: 4px; }"
+            "QPushButton:hover { background-color: #3F3F46; }"
+        );
+        btn->setMinimumHeight(24);
+    };
+    styleBtn(m_btnAddMarker);
+    styleBtn(m_btnRemoveMarker);
+    styleBtn(m_btnClearMarkers);
+
+    btnLayout->addWidget(m_btnAddMarker);
+    btnLayout->addWidget(m_btnRemoveMarker);
+    btnLayout->addWidget(m_btnClearMarkers);
+    layout->addLayout(btnLayout);
 }
 
 void ResultsPage::refreshBrowser() {
@@ -183,7 +231,10 @@ void ResultsPage::createWorkspacePanel(QWidget *parent) {
     // Tab Widget
     m_tabWidget = new QTabWidget(parent);
     m_tabWidget->addTab(createOverviewTab(m_tabWidget), tr("Overview"));
-    m_tabWidget->addTab(createGraphsTab(m_tabWidget), tr("Graphs"));
+    m_tabWidget->addTab(createMagnitudeTab(m_tabWidget), tr("Magnitude Plot"));
+    m_tabWidget->addTab(createPhaseTab(m_tabWidget), tr("Phase Plot"));
+    m_tabWidget->addTab(createPolarTab(m_tabWidget), tr("Polar Plot"));
+    m_tabWidget->addTab(createSmithTab(m_tabWidget), tr("Smith Chart"));
     m_tabWidget->addTab(createTableTab(m_tabWidget), tr("Data Table"));
     m_tabWidget->addTab(createStatisticsTab(m_tabWidget), tr("Statistics"));
     m_tabWidget->addTab(createReportTab(m_tabWidget), tr("Report"));
@@ -220,18 +271,43 @@ QWidget* ResultsPage::createOverviewTab(QWidget *parent) {
     return tab;
 }
 
-QWidget* ResultsPage::createGraphsTab(QWidget *parent) {
+QWidget* ResultsPage::createMagnitudeTab(QWidget *parent) {
     auto *tab = new QWidget(parent);
-    auto *layout = new QHBoxLayout(tab);
+    auto *layout = new QVBoxLayout(tab);
     layout->setContentsMargins(12, 12, 12, 12);
-    layout->setSpacing(16);
 
-    m_magPlot = new MeasurementPlotWidget(tr("Magnitude Response"), tab);
-    m_phasePlot = new MeasurementPlotWidget(tr("Phase Response"), tab);
+    m_magPlot = new MeasurementPlotWidget(tr("Magnitude Response (S11)"), tab);
+    layout->addWidget(m_magPlot);
+    return tab;
+}
 
-    layout->addWidget(m_magPlot, 1);
-    layout->addWidget(m_phasePlot, 1);
+QWidget* ResultsPage::createPhaseTab(QWidget *parent) {
+    auto *tab = new QWidget(parent);
+    auto *layout = new QVBoxLayout(tab);
+    layout->setContentsMargins(12, 12, 12, 12);
 
+    m_phasePlot = new MeasurementPlotWidget(tr("Phase Response (S11)"), tab);
+    layout->addWidget(m_phasePlot);
+    return tab;
+}
+
+QWidget* ResultsPage::createPolarTab(QWidget *parent) {
+    auto *tab = new QWidget(parent);
+    auto *layout = new QVBoxLayout(tab);
+    layout->setContentsMargins(12, 12, 12, 12);
+
+    m_polarPlot = new PolarPlotWidget(tr("Polar Radiation Response"), tab);
+    layout->addWidget(m_polarPlot);
+    return tab;
+}
+
+QWidget* ResultsPage::createSmithTab(QWidget *parent) {
+    auto *tab = new QWidget(parent);
+    auto *layout = new QVBoxLayout(tab);
+    layout->setContentsMargins(12, 12, 12, 12);
+
+    m_smithChart = new SmithChartWidget(tr("Complex Reflection Locus"), tab);
+    layout->addWidget(m_smithChart);
     return tab;
 }
 
@@ -508,6 +584,10 @@ void ResultsPage::onSessionSelected(QTreeWidgetItem *item, int column) {
 }
 
 void ResultsPage::loadSessionToUI(const MeasurementSession &session) {
+    m_currentSession = session;
+    m_markers.clear();
+    updateMarkersUI();
+
     // Update Top Summary
     m_lblSumName->setText(QString::fromStdString(session.sessionName));
     m_lblSumType->setText(QString::fromStdString(session.measurementType));
@@ -525,6 +605,8 @@ void ResultsPage::loadSessionToUI(const MeasurementSession &session) {
     if (session.results.empty()) {
         if (m_magPlot) m_magPlot->clearData();
         if (m_phasePlot) m_phasePlot->clearData();
+        if (m_polarPlot) m_polarPlot->clearData();
+        if (m_smithChart) m_smithChart->clearData();
         
         m_lblStatMinMag->setText(tr("N/A"));
         m_lblStatMaxMag->setText(tr("N/A"));
@@ -589,6 +671,8 @@ void ResultsPage::loadSessionToUI(const MeasurementSession &session) {
     // Update Plots
     if (m_magPlot) m_magPlot->setData(freqs, mags, tr("Frequency (GHz)"), tr("Magnitude (dB)"));
     if (m_phasePlot) m_phasePlot->setData(freqs, phases, tr("Frequency (GHz)"), tr("Phase (deg)"));
+    if (m_polarPlot) m_polarPlot->setSessionData(session.results);
+    if (m_smithChart) m_smithChart->setSessionData(session.results);
 
     // Update Statistics Panel labels
     m_lblStatMinMag->setText(tr("%1 dB").arg(minMag, 0, 'f', 2));
@@ -640,6 +724,84 @@ void ResultsPage::loadSessionToUI(const MeasurementSession &session) {
         setCell(i, 3, pt.angleDeg);
         setCell(i, 4, pt.returnLossDb);
     }
+}
+
+void ResultsPage::onAddMarkerClicked() {
+    if (m_currentSession.results.empty()) {
+        QMessageBox::warning(this, tr("No Data"), tr("No active session data to place a marker on."));
+        return;
+    }
+
+    int currentRow = m_dataTable->currentRow();
+    if (currentRow < 0 || currentRow >= static_cast<int>(m_currentSession.results.size())) {
+        currentRow = 0;
+    }
+
+    double freq = m_currentSession.results[currentRow].frequencyHz;
+    for (const auto &m : m_markers) {
+        if (std::abs(m.frequencyHz - freq) < 1.0) {
+            QMessageBox::warning(this, tr("Duplicate Marker"), tr("A marker already exists at this frequency."));
+            return;
+        }
+    }
+
+    EngineeringMarker marker;
+    marker.id = m_markers.empty() ? 1 : (m_markers.back().id + 1);
+    marker.frequencyHz = freq;
+    marker.magnitudeDb = m_currentSession.results[currentRow].magnitudeDb;
+    marker.phaseDeg = m_currentSession.results[currentRow].phaseDeg;
+    marker.angleDeg = m_currentSession.results[currentRow].angleDeg;
+    marker.pointIndex = currentRow;
+
+    m_markers.push_back(marker);
+    updateMarkersUI();
+}
+
+void ResultsPage::onRemoveMarkerClicked() {
+    int row = m_tableMarkers->currentRow();
+    if (row >= 0 && row < static_cast<int>(m_markers.size())) {
+        m_markers.erase(m_markers.begin() + row);
+        updateMarkersUI();
+    } else {
+        QMessageBox::warning(this, tr("No Selection"), tr("Please select a marker in the list to delete."));
+    }
+}
+
+void ResultsPage::onClearMarkersClicked() {
+    m_markers.clear();
+    updateMarkersUI();
+}
+
+void ResultsPage::updateMarkersUI() {
+    m_tableMarkers->setRowCount(0);
+    m_tableMarkers->setRowCount(static_cast<int>(m_markers.size()));
+
+    std::vector<double> markerFreqsGhz;
+    std::vector<double> markerFreqsHz;
+    std::vector<QPointF> markerPolarPoints;
+
+    auto setMarkerCell = [this](int r, int c, const QString &text) {
+        auto *item = new QTableWidgetItem(text);
+        item->setTextAlignment(Qt::AlignCenter);
+        m_tableMarkers->setItem(r, c, item);
+    };
+
+    for (size_t i = 0; i < m_markers.size(); ++i) {
+        const auto &m = m_markers[i];
+        setMarkerCell(i, 0, QString("M%1").arg(m.id));
+        setMarkerCell(i, 1, QString::number(m.frequencyHz / 1e9, 'f', 3));
+        setMarkerCell(i, 2, QString::number(m.magnitudeDb, 'f', 2));
+        setMarkerCell(i, 3, QString::number(m.phaseDeg, 'f', 1));
+
+        markerFreqsGhz.push_back(m.frequencyHz / 1e9);
+        markerFreqsHz.push_back(m.frequencyHz);
+        markerPolarPoints.push_back(QPointF(m.angleDeg, m.magnitudeDb));
+    }
+
+    if (m_magPlot) m_magPlot->setMarkers(markerFreqsGhz);
+    if (m_phasePlot) m_phasePlot->setMarkers(markerFreqsGhz);
+    if (m_polarPlot) m_polarPlot->setMarkers(markerPolarPoints);
+    if (m_smithChart) m_smithChart->setMarkers(markerFreqsHz);
 }
 
 } // namespace AMAS

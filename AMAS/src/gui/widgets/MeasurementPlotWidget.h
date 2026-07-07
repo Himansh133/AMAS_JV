@@ -6,6 +6,7 @@
 #include <QChart>
 #include <QLineSeries>
 #include <QValueAxis>
+#include <QScatterSeries>
 #include <QLabel>
 #include <QPushButton>
 #include <vector>
@@ -46,6 +47,9 @@ public:
     void setData(const std::vector<double> &xData, const std::vector<double> &yData, 
                  const QString &xTitle, const QString &yTitle);
     
+    // Set active markers on plot
+    void setMarkers(const std::vector<double> &markerFreqs);
+
     // Clear any existing series
     void clearData();
 
@@ -65,6 +69,7 @@ private:
     QChart *m_chart;
     CustomChartView *m_chartView;
     QLineSeries *m_series;
+    QScatterSeries *m_markerSeries;
     QValueAxis *m_axisX;
     QValueAxis *m_axisY;
 

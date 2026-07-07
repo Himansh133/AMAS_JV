@@ -137,8 +137,12 @@ MeasurementPlotWidget::MeasurementPlotWidget(const QString &title, QWidget *pare
     } else {
         m_series->setColor(QColor("#FF9800")); // Orange
     }
-    
     m_chart->addSeries(m_series);
+
+    m_markerSeries = new QScatterSeries(m_chart);
+    m_markerSeries->setColor(QColor("#FF4C4C")); // Red
+    m_markerSeries->setMarkerSize(8.0);
+    m_chart->addSeries(m_markerSeries);
 
     // Create Axis
     m_axisX = new QValueAxis(m_chart);
@@ -156,6 +160,8 @@ MeasurementPlotWidget::MeasurementPlotWidget(const QString &title, QWidget *pare
 
     m_series->attachAxis(m_axisX);
     m_series->attachAxis(m_axisY);
+    m_markerSeries->attachAxis(m_axisX);
+    m_markerSeries->attachAxis(m_axisY);
 
     // Setup Chart View
     m_chartView = new CustomChartView(m_chart, this);
@@ -215,8 +221,26 @@ void MeasurementPlotWidget::setData(const std::vector<double> &xData, const std:
     m_lblTracking->setText("");
 }
 
+void MeasurementPlotWidget::setMarkers(const std::vector<double> &markerFreqs) {
+    m_markerSeries->clear();
+    for (double fGhz : markerFreqs) {
+        if (m_xData.empty()) continue;
+        size_t closestIdx = 0;
+        double minDiff = std::abs(m_xData[0] - fGhz);
+        for (size_t i = 1; i < m_xData.size(); ++i) {
+            double diff = std::abs(m_xData[i] - fGhz);
+            if (diff < minDiff) {
+                minDiff = diff;
+                closestIdx = i;
+            }
+        }
+        m_markerSeries->append(m_xData[closestIdx], m_yData[closestIdx]);
+    }
+}
+
 void MeasurementPlotWidget::clearData() {
     m_series->clear();
+    m_markerSeries->clear();
     m_xData.clear();
     m_yData.clear();
     m_lblTracking->setText("");

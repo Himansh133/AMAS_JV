@@ -160,6 +160,10 @@ set(SOURCES
     src/gui/widgets/NoWheelWidgets.h
     src/gui/widgets/MeasurementPlotWidget.h
     src/gui/widgets/MeasurementPlotWidget.cpp
+    src/gui/widgets/PolarPlotWidget.h
+    src/gui/widgets/PolarPlotWidget.cpp
+    src/gui/widgets/SmithChartWidget.h
+    src/gui/widgets/SmithChartWidget.cpp
 )
 
 

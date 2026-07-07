@@ -9,6 +9,7 @@
 #include <QPushButton>
 #include <QHBoxLayout>
 #include <QTextEdit>
+#include <QLineEdit>
 #include <QSplitter>
 #include "measurement/MeasurementSession.h"
 
@@ -90,6 +91,24 @@ private:
 
     // Report Preview Text Edit
     QTextEdit *m_txtReportPreview;
+
+    // Report Customization inputs
+    QLineEdit *m_editProjectName;
+    QLineEdit *m_editOperator;
+    QLineEdit *m_editCompany;
+    QLineEdit *m_editLab;
+    QLineEdit *m_editReportTitle;
+    QTextEdit *m_editComments;
+
+    // Report Actions buttons
+    QPushButton *m_btnGenerateReport;
+    QPushButton *m_btnPreviewReport;
+    QPushButton *m_btnExportPdf;
+    QPushButton *m_btnExportHtml;
+    QPushButton *m_btnExportMd;
+    QPushButton *m_btnOpenFolder;
+
+    QString m_lastReportFolderPath;
 
     // Status bar labels
     QLabel *m_statusLoaded;

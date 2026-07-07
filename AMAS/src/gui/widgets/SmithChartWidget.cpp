@@ -113,6 +113,12 @@ void SmithChartWidget::onExportClicked() {
     }
 }
 
+bool SmithChartWidget::savePng(const QString &filePath) {
+    QPixmap pixmap(size());
+    render(&pixmap);
+    return pixmap.save(filePath, "PNG");
+}
+
 QRect SmithChartWidget::getChartRect() const {
     // Leave space at top for toolbar
     int topOffset = 36;

@@ -20,6 +20,11 @@ struct SessionMetadata {
     std::string operatorName = "Engineer";
     std::string notes = "";
     std::string antennaModel = "AUT-001";
+    std::string projectName = "Antenna Measurement Project";
+    std::string company = "RF Engineering Corp";
+    std::string laboratory = "Anechoic Chamber Lab";
+    std::string reportTitle = "Antenna Performance Evaluation";
+    std::string comments = "";
 };
 
 class MeasurementSession {

@@ -45,6 +45,11 @@ bool MeasurementSession::serialize(const std::string& filePath) const {
     file << "operatorName=" << metadata.operatorName << "\n";
     file << "notes=" << metadata.notes << "\n";
     file << "antennaModel=" << metadata.antennaModel << "\n";
+    file << "projectName=" << metadata.projectName << "\n";
+    file << "company=" << metadata.company << "\n";
+    file << "laboratory=" << metadata.laboratory << "\n";
+    file << "reportTitle=" << metadata.reportTitle << "\n";
+    file << "comments=" << metadata.comments << "\n";
     file << "resultsCount=" << results.size() << "\n";
 
     return true;
@@ -80,6 +85,11 @@ bool MeasurementSession::deserialize(const std::string& filePath) {
             else if (key == "operatorName") metadata.operatorName = val;
             else if (key == "notes") metadata.notes = val;
             else if (key == "antennaModel") metadata.antennaModel = val;
+            else if (key == "projectName") metadata.projectName = val;
+            else if (key == "company") metadata.company = val;
+            else if (key == "laboratory") metadata.laboratory = val;
+            else if (key == "reportTitle") metadata.reportTitle = val;
+            else if (key == "comments") metadata.comments = val;
         }
     }
     return true;

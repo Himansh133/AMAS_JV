@@ -49,9 +49,12 @@ public:
     
     // Set active markers on plot
     void setMarkers(const std::vector<double> &markerFreqs);
-
+    
     // Clear any existing series
     void clearData();
+
+    // Save plot image to a file
+    bool savePng(const QString &filePath);
 
 public slots:
     void onMouseMoved(const QPoint &pos);

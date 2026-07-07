@@ -305,4 +305,10 @@ void MeasurementPlotWidget::onExportClicked() {
     }
 }
 
+bool MeasurementPlotWidget::savePng(const QString &filePath) {
+    if (!m_chartView) return false;
+    QPixmap pixmap = m_chartView->grab();
+    return pixmap.save(filePath, "PNG");
+}
+
 } // namespace AMAS

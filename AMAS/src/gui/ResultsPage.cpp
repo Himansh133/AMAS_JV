@@ -18,6 +18,14 @@
 #include <QFrame>
 #include <QSettings>
 #include <QMessageBox>
+#include <QDir>
+#include <QDateTime>
+#include <QPdfWriter>
+#include <QTextDocument>
+#include <QDesktopServices>
+#include <QUrl>
+#include <QFileDialog>
+#include "reports/ReportGenerator.h"
 #include <QFileDialog>
 #include <QFile>
 #include <QTextStream>
@@ -464,98 +472,268 @@ QWidget* ResultsPage::createStatisticsTab(QWidget *parent) {
 
 QWidget* ResultsPage::createReportTab(QWidget *parent) {
     auto *tab = new QWidget(parent);
-    auto *layout = new QVBoxLayout(tab);
-    layout->setContentsMargins(12, 12, 12, 12);
-    layout->setSpacing(12);
+    auto *mainLayout = new QHBoxLayout(tab);
+    mainLayout->setContentsMargins(12, 12, 12, 12);
+    mainLayout->setSpacing(12);
 
-    auto *previewBox = new QGroupBox(tr("Report Document Preview"), tab);
-    auto *previewLayout = new QVBoxLayout(previewBox);
+    // Left Panel: Configuration & Actions
+    auto *leftContainer = new QWidget(tab);
+    auto *leftLayout = new QVBoxLayout(leftContainer);
+    leftLayout->setContentsMargins(0, 0, 0, 0);
+    leftLayout->setSpacing(12);
+
+    // Group 1: Customization Inputs
+    auto *customBox = new QGroupBox(tr("Report Metadata Customization"), leftContainer);
+    auto *formLayout = new QFormLayout(customBox);
+    formLayout->setSpacing(8);
+
+    m_editProjectName = new QLineEdit(customBox);
+    m_editOperator = new QLineEdit(customBox);
+    m_editCompany = new QLineEdit(customBox);
+    m_editLab = new QLineEdit(customBox);
+    m_editReportTitle = new QLineEdit(customBox);
     
+    m_editComments = new QTextEdit(customBox);
+    m_editComments->setMaximumHeight(80);
+
+    formLayout->addRow(tr("Report Title:"), m_editReportTitle);
+    formLayout->addRow(tr("Project Name:"), m_editProjectName);
+    formLayout->addRow(tr("Operator Name:"), m_editOperator);
+    formLayout->addRow(tr("Company Name:"), m_editCompany);
+    formLayout->addRow(tr("Laboratory:"), m_editLab);
+    formLayout->addRow(tr("Notes / Comments:"), m_editComments);
+
+    leftLayout->addWidget(customBox);
+
+    // Group 2: Actions & Buttons
+    auto *actionsBox = new QGroupBox(tr("Report Commands"), leftContainer);
+    auto *actionsLayout = new QGridLayout(actionsBox);
+    actionsLayout->setSpacing(8);
+
+    m_btnPreviewReport = new QPushButton(tr("Preview Report"), actionsBox);
+    m_btnPreviewReport->setIcon(style()->standardIcon(QStyle::SP_FileDialogContentsView));
+    
+    m_btnGenerateReport = new QPushButton(tr("Generate Report Bundle"), actionsBox);
+    m_btnGenerateReport->setIcon(style()->standardIcon(QStyle::SP_DialogYesButton));
+    m_btnGenerateReport->setStyleSheet("font-weight: bold; background-color: #0F52BA; color: white;");
+
+    m_btnExportPdf = new QPushButton(tr("Export PDF"), actionsBox);
+    m_btnExportPdf->setIcon(style()->standardIcon(QStyle::SP_FileIcon));
+
+    m_btnExportHtml = new QPushButton(tr("Export HTML"), actionsBox);
+    m_btnExportHtml->setIcon(style()->standardIcon(QStyle::SP_DialogSaveButton));
+
+    m_btnExportMd = new QPushButton(tr("Export Markdown"), actionsBox);
+    m_btnExportMd->setIcon(style()->standardIcon(QStyle::SP_FileLinkIcon));
+
+    m_btnOpenFolder = new QPushButton(tr("Open Output Folder"), actionsBox);
+    m_btnOpenFolder->setIcon(style()->standardIcon(QStyle::SP_DirIcon));
+    m_btnOpenFolder->setEnabled(false);
+
+    actionsLayout->addWidget(m_btnPreviewReport, 0, 0);
+    actionsLayout->addWidget(m_btnGenerateReport, 0, 1);
+    actionsLayout->addWidget(m_btnExportPdf, 1, 0);
+    actionsLayout->addWidget(m_btnExportHtml, 1, 1);
+    actionsLayout->addWidget(m_btnExportMd, 2, 0);
+    actionsLayout->addWidget(m_btnOpenFolder, 2, 1);
+
+    leftLayout->addWidget(actionsBox);
+    leftLayout->addStretch();
+
+    leftContainer->setFixedWidth(340);
+    mainLayout->addWidget(leftContainer);
+
+    // Right Panel: Live Document Preview
+    auto *previewBox = new QGroupBox(tr("Rendered Document Preview"), tab);
+    auto *previewLayout = new QVBoxLayout(previewBox);
+    previewLayout->setContentsMargins(8, 8, 8, 8);
+
     m_txtReportPreview = new QTextEdit(previewBox);
     m_txtReportPreview->setReadOnly(true);
     m_txtReportPreview->setStyleSheet(
         "QTextEdit { "
-        "  background-color: #1E1E1E; "
-        "  border: 1px solid #3F3F46; "
-        "  font-family: Consolas, monospace; "
-        "  color: #C8C8C8; "
+        "  background-color: #FFFFFF; "
+        "  border: 1px solid #D1D5DB; "
+        "  color: #1F2937; "
         "} "
     );
-    m_txtReportPreview->append(tr("=================================================="));
-    m_txtReportPreview->append(tr("          AMAS ANTENNA MEASUREMENT REPORT         "));
-    m_txtReportPreview->append(tr("=================================================="));
-    m_txtReportPreview->append(tr("Session ID: SESS-2026-0701"));
-    m_txtReportPreview->append(tr("Operator: Operator-01"));
-    m_txtReportPreview->append(tr("Calibration state: Coaxial 2-Port SOLT valid"));
-    m_txtReportPreview->append(tr("Frequency band: 8-12 GHz"));
-    m_txtReportPreview->append(tr("Peak Gain: 12.4 dBi @ 10.12 GHz"));
-    m_txtReportPreview->append(tr("Radiation efficiency: 88.4%"));
-    m_txtReportPreview->append(tr("=================================================="));
-
     previewLayout->addWidget(m_txtReportPreview);
-    layout->addWidget(previewBox);
 
-    // Export controls
-    auto *exportBar = new QHBoxLayout();
-    exportBar->setSpacing(10);
+    mainLayout->addWidget(previewBox, 1);
 
-    auto *btnPdf = new QPushButton(tr("Generate PDF"), tab);
-    btnPdf->setIcon(style()->standardIcon(QStyle::SP_FileIcon));
-    btnPdf->setMinimumWidth(140);
-    btnPdf->setMinimumHeight(32);
+    // Wire Customization Signals (Connect edits directly to updating active session metadata)
+    connect(m_editProjectName, &QLineEdit::textChanged, this, [this](const QString &text) {
+        m_currentSession.metadata.projectName = text.toStdString();
+    });
+    connect(m_editOperator, &QLineEdit::textChanged, this, [this](const QString &text) {
+        m_currentSession.metadata.operatorName = text.toStdString();
+    });
+    connect(m_editCompany, &QLineEdit::textChanged, this, [this](const QString &text) {
+        m_currentSession.metadata.company = text.toStdString();
+    });
+    connect(m_editLab, &QLineEdit::textChanged, this, [this](const QString &text) {
+        m_currentSession.metadata.laboratory = text.toStdString();
+    });
+    connect(m_editReportTitle, &QLineEdit::textChanged, this, [this](const QString &text) {
+        m_currentSession.metadata.reportTitle = text.toStdString();
+    });
+    connect(m_editComments, &QTextEdit::textChanged, this, [this]() {
+        m_currentSession.metadata.comments = m_editComments->toPlainText().toStdString();
+    });
 
-    auto *btnCsv = new QPushButton(tr("Export CSV"), tab);
-    btnCsv->setIcon(style()->standardIcon(QStyle::SP_DialogSaveButton));
-    btnCsv->setMinimumWidth(140);
-    btnCsv->setMinimumHeight(32);
+    // Wire Command Buttons
+    connect(m_btnPreviewReport, &QPushButton::clicked, this, [this]() {
+        auto report = ReportGenerator::generateReport(m_currentSession, ReportFormat::HTML);
+        if (report) {
+            m_txtReportPreview->setHtml(QString::fromStdString(report->getContent()));
+        }
+    });
 
-    auto *btnImg = new QPushButton(tr("Export Image"), tab);
-    btnImg->setIcon(style()->standardIcon(QStyle::SP_FileDialogListView));
-    btnImg->setMinimumWidth(140);
-    btnImg->setMinimumHeight(32);
+    connect(m_btnGenerateReport, &QPushButton::clicked, this, [this]() {
+        if (m_currentSession.sessionName.empty()) {
+            QMessageBox::warning(this, tr("Export Failure"), tr("No active session loaded to generate a report."));
+            return;
+        }
 
-    auto *btnPrint = new QPushButton(tr("Print"), tab);
-    btnPrint->setIcon(style()->standardIcon(QStyle::SP_CommandLink));
-    btnPrint->setMinimumWidth(140);
-    btnPrint->setMinimumHeight(32);
+        // 1. Create unique timestamped directory under "Reports"
+        QString timestamp = QDateTime::currentDateTime().toString("yyyy-MM-dd_hh-mm-ss");
+        QString reportDirName = QString("Reports/%1_%2").arg(timestamp).arg(QString::fromStdString(m_currentSession.sessionName));
+        QDir dir;
+        if (!dir.exists(reportDirName)) {
+            dir.mkpath(reportDirName);
+        }
+        m_lastReportFolderPath = dir.absoluteFilePath(reportDirName);
 
-    connect(btnCsv, &QPushButton::clicked, this, [this]() {
+        // 2. Programmatically save active plot screenshots
+        bool hasResults = !m_currentSession.results.empty();
+        if (hasResults) {
+            if (m_magPlot) m_magPlot->savePng(m_lastReportFolderPath + "/Magnitude.png");
+            if (m_phasePlot) m_phasePlot->savePng(m_lastReportFolderPath + "/Phase.png");
+            if (m_polarPlot && m_currentSession.profile.positioner.usePositioner) {
+                m_polarPlot->savePng(m_lastReportFolderPath + "/Polar.png");
+            }
+            if (m_smithChart) m_smithChart->savePng(m_lastReportFolderPath + "/Smith.png");
+
+            // Save Statistics.csv
+            QFile csvFile(m_lastReportFolderPath + "/Statistics.csv");
+            if (csvFile.open(QIODevice::WriteOnly | QIODevice::Text)) {
+                QTextStream out(&csvFile);
+                out << "Metric,Value\n";
+                if (m_lblStatMinMag) out << "Minimum Magnitude," << m_lblStatMinMag->text() << "\n";
+                if (m_lblStatMaxMag) out << "Maximum Magnitude," << m_lblStatMaxMag->text() << "\n";
+                if (m_lblStatAvgMag) out << "Average Magnitude," << m_lblStatAvgMag->text() << "\n";
+                if (m_lblStatMinPhase) out << "Minimum Phase," << m_lblStatMinPhase->text() << "\n";
+                if (m_lblStatMaxPhase) out << "Maximum Phase," << m_lblStatMaxPhase->text() << "\n";
+                if (m_lblStatAvgPhase) out << "Average Phase," << m_lblStatAvgPhase->text() << "\n";
+                if (m_lblStatPeakFreq) out << "Peak Frequency," << m_lblStatPeakFreq->text() << "\n";
+                csvFile.close();
+            }
+        }
+
+        // 3. Generate HTML & Markdown reports
+        auto htmlReport = ReportGenerator::generateReport(m_currentSession, ReportFormat::HTML);
+        auto mdReport = ReportGenerator::generateReport(m_currentSession, ReportFormat::Markdown);
+
+        if (htmlReport) {
+            QFile file(m_lastReportFolderPath + "/Report.html");
+            if (file.open(QIODevice::WriteOnly | QIODevice::Text)) {
+                QTextStream out(&file);
+                out << QString::fromStdString(htmlReport->getContent());
+                file.close();
+            }
+            // Load preview
+            m_txtReportPreview->setHtml(QString::fromStdString(htmlReport->getContent()));
+        }
+
+        if (mdReport) {
+            QFile file(m_lastReportFolderPath + "/Report.md");
+            if (file.open(QIODevice::WriteOnly | QIODevice::Text)) {
+                QTextStream out(&file);
+                out << QString::fromStdString(mdReport->getContent());
+                file.close();
+            }
+        }
+
+        // 4. Generate real PDF from HTML report
+        if (htmlReport) {
+            QPdfWriter pdfWriter(m_lastReportFolderPath + "/Report.pdf");
+            pdfWriter.setPageSize(QPageSize(QPageSize::A4));
+            pdfWriter.setPageOrientation(QPageLayout::Portrait);
+            pdfWriter.setPageMargins(QMarginsF(15, 15, 15, 15), QPageLayout::Millimeter);
+
+            QTextDocument doc;
+            doc.setHtml(QString::fromStdString(htmlReport->getContent()));
+            doc.setPageSize(QSizeF(pdfWriter.width(), pdfWriter.height()));
+            doc.print(&pdfWriter);
+        }
+
+        m_btnOpenFolder->setEnabled(true);
+
+        QMessageBox::information(this, tr("Report Generated"), 
+            tr("Engineering Report Bundle successfully generated in:\n%1").arg(m_lastReportFolderPath));
+    });
+
+    connect(m_btnExportPdf, &QPushButton::clicked, this, [this]() {
         QString fileName = QFileDialog::getSaveFileName(this, 
-            tr("Export Data Table as CSV"), "", tr("CSV Files (*.csv)"));
+            tr("Save PDF Report"), "", tr("PDF Files (*.pdf)"));
         if (fileName.isEmpty()) return;
 
-        QFile file(fileName);
-        if (file.open(QIODevice::WriteOnly | QIODevice::Text)) {
-            QTextStream out(&file);
-            out << "Frequency (GHz),Magnitude (dB),Phase (deg),Angle (deg),Return Loss (dB)\n";
-            for (int r = 0; r < m_dataTable->rowCount(); ++r) {
-                out << m_dataTable->item(r, 0)->text() << ","
-                    << m_dataTable->item(r, 1)->text() << ","
-                    << m_dataTable->item(r, 2)->text() << ","
-                    << m_dataTable->item(r, 3)->text() << ","
-                    << m_dataTable->item(r, 4)->text() << "\n";
+        auto htmlReport = ReportGenerator::generateReport(m_currentSession, ReportFormat::HTML);
+        if (htmlReport) {
+            QPdfWriter pdfWriter(fileName);
+            pdfWriter.setPageSize(QPageSize(QPageSize::A4));
+            pdfWriter.setPageOrientation(QPageLayout::Portrait);
+            pdfWriter.setPageMargins(QMarginsF(15, 15, 15, 15), QPageLayout::Millimeter);
+
+            QTextDocument doc;
+            doc.setHtml(QString::fromStdString(htmlReport->getContent()));
+            doc.setPageSize(QSizeF(pdfWriter.width(), pdfWriter.height()));
+            doc.print(&pdfWriter);
+
+            QMessageBox::information(this, tr("Export Success"), tr("PDF Report saved successfully."));
+        }
+    });
+
+    connect(m_btnExportHtml, &QPushButton::clicked, this, [this]() {
+        QString fileName = QFileDialog::getSaveFileName(this, 
+            tr("Save HTML Report"), "", tr("HTML Files (*.html)"));
+        if (fileName.isEmpty()) return;
+
+        auto htmlReport = ReportGenerator::generateReport(m_currentSession, ReportFormat::HTML);
+        if (htmlReport) {
+            QFile file(fileName);
+            if (file.open(QIODevice::WriteOnly | QIODevice::Text)) {
+                QTextStream out(&file);
+                out << QString::fromStdString(htmlReport->getContent());
+                file.close();
+                QMessageBox::information(this, tr("Export Success"), tr("HTML Report saved successfully."));
             }
-            file.close();
-            QMessageBox::information(this, tr("Export Success"), 
-                tr("Data Table successfully exported to '%1'").arg(QFileInfo(fileName).fileName()));
-        } else {
-            QMessageBox::warning(this, tr("Export Failure"), tr("Failed to write to file."));
         }
     });
 
-    connect(btnImg, &QPushButton::clicked, this, [this]() {
-        if (m_magPlot) {
-            m_magPlot->onExportClicked();
+    connect(m_btnExportMd, &QPushButton::clicked, this, [this]() {
+        QString fileName = QFileDialog::getSaveFileName(this, 
+            tr("Save Markdown Report"), "", tr("Markdown Files (*.md)"));
+        if (fileName.isEmpty()) return;
+
+        auto mdReport = ReportGenerator::generateReport(m_currentSession, ReportFormat::Markdown);
+        if (mdReport) {
+            QFile file(fileName);
+            if (file.open(QIODevice::WriteOnly | QIODevice::Text)) {
+                QTextStream out(&file);
+                out << QString::fromStdString(mdReport->getContent());
+                file.close();
+                QMessageBox::information(this, tr("Export Success"), tr("Markdown Report saved successfully."));
+            }
         }
     });
 
-    exportBar->addWidget(btnPdf);
-    exportBar->addWidget(btnCsv);
-    exportBar->addWidget(btnImg);
-    exportBar->addWidget(btnPrint);
-    exportBar->addStretch();
+    connect(m_btnOpenFolder, &QPushButton::clicked, this, [this]() {
+        if (!m_lastReportFolderPath.isEmpty()) {
+            QDesktopServices::openUrl(QUrl::fromLocalFile(m_lastReportFolderPath));
+        }
+    });
 
-    layout->addLayout(exportBar);
     return tab;
 }
 
@@ -610,6 +788,38 @@ void ResultsPage::loadSessionToUI(const MeasurementSession &session) {
     m_currentSession = session;
     m_markers.clear();
     updateMarkersUI();
+
+    // Populate report customization widgets (blocking signals to avoid self-triggering updates)
+    if (m_editProjectName) {
+        m_editProjectName->blockSignals(true);
+        m_editProjectName->setText(QString::fromStdString(session.metadata.projectName));
+        m_editProjectName->blockSignals(false);
+    }
+    if (m_editOperator) {
+        m_editOperator->blockSignals(true);
+        m_editOperator->setText(QString::fromStdString(session.metadata.operatorName));
+        m_editOperator->blockSignals(false);
+    }
+    if (m_editCompany) {
+        m_editCompany->blockSignals(true);
+        m_editCompany->setText(QString::fromStdString(session.metadata.company));
+        m_editCompany->blockSignals(false);
+    }
+    if (m_editLab) {
+        m_editLab->blockSignals(true);
+        m_editLab->setText(QString::fromStdString(session.metadata.laboratory));
+        m_editLab->blockSignals(false);
+    }
+    if (m_editReportTitle) {
+        m_editReportTitle->blockSignals(true);
+        m_editReportTitle->setText(QString::fromStdString(session.metadata.reportTitle));
+        m_editReportTitle->blockSignals(false);
+    }
+    if (m_editComments) {
+        m_editComments->blockSignals(true);
+        m_editComments->setPlainText(QString::fromStdString(session.metadata.comments));
+        m_editComments->blockSignals(false);
+    }
 
     // Update Top Summary
     m_lblSumName->setText(QString::fromStdString(session.sessionName));

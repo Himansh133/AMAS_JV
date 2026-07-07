@@ -54,6 +54,9 @@ public:
     // Clear data
     void clearData();
 
+    // Save plot image to a file
+    bool savePng(const QString &filePath);
+
 public slots:
     void onResetViewClicked();
     void onExportClicked();

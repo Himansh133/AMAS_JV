@@ -11,6 +11,7 @@
 namespace AMAS {
 
 class DashboardPresenter;
+class SettingsManager;
 
 class DashboardPage : public QWidget {
     Q_OBJECT
@@ -45,6 +46,7 @@ private slots:
 
 private:
     DashboardPresenter *m_presenter;
+    SettingsManager* getSettingsManager() const;
 };
 
 } // namespace AMAS

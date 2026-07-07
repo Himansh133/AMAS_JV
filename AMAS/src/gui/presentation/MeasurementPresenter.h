@@ -2,6 +2,7 @@
 #define AMAS_MEASUREMENTPRESENTER_H
 
 #include <QObject>
+#include <QUndoStack>
 #include <memory>
 #include "controllers/MeasurementController.h"
 #include "measurement/MeasurementProfile.h"
@@ -43,6 +44,8 @@ public:
     QString systemState() const; // "Idle", "Running", "Paused"
     void setSystemState(const QString &state);
 
+    QUndoStack* undoStack() const;
+
 signals:
     void stateChanged();
     void currentProfileChanged(const QString &profileName);
@@ -63,6 +66,7 @@ private:
     MeasurementProfile m_currentProfile;
     QString m_activeCalibration;
     QString m_systemState; // "Idle", "Running", "Paused"
+    QUndoStack *m_undoStack;
 };
 
 } // namespace AMAS

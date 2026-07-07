@@ -351,4 +351,13 @@ bool PolarPlotWidget::savePng(const QString &filePath) {
     return pixmap.save(filePath, "PNG");
 }
 
+void PolarPlotWidget::setGridVisible(bool visible) {
+    if (m_axisAngular) m_axisAngular->setGridLineVisible(visible);
+    if (m_axisRadial) m_axisRadial->setGridLineVisible(visible);
+}
+
+void PolarPlotWidget::setMarkersVisible(bool visible) {
+    if (m_markerSeries) m_markerSeries->setVisible(visible);
+}
+
 } // namespace AMAS

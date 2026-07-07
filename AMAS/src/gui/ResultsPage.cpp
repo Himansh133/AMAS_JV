@@ -2,6 +2,8 @@
 #include "presentation/ResultsPresenter.h"
 #include "presentation/MeasurementPresenter.h"
 #include "measurement/MeasurementSession.h"
+#include "MainWindow.h"
+#include "framework/SettingsManager.h"
 #include "widgets/MeasurementPlotWidget.h"
 #include "widgets/PolarPlotWidget.h"
 #include "widgets/SmithChartWidget.h"
@@ -30,7 +32,50 @@
 #include <QFile>
 #include <QTextStream>
 
+#include <QUndoCommand>
+
 namespace AMAS {
+
+class MetadataChangeCommand : public QUndoCommand {
+public:
+    MetadataChangeCommand(ResultsPage *page, MeasurementSession &session, const std::string &fieldName, const std::string &oldValue, const std::string &newValue, QUndoCommand *parent = nullptr)
+        : QUndoCommand(parent)
+        , m_page(page)
+        , m_session(session)
+        , m_fieldName(fieldName)
+        , m_oldValue(oldValue)
+        , m_newValue(newValue)
+    {
+        setText(QObject::tr("Edit %1").arg(QString::fromStdString(fieldName)));
+    }
+
+    void undo() override {
+        updateValue(m_oldValue);
+    }
+
+    void redo() override {
+        updateValue(m_newValue);
+    }
+
+private:
+    void updateValue(const std::string &value) {
+        if (m_fieldName == "Project Name") m_session.metadata.projectName = value;
+        else if (m_fieldName == "Operator Name") m_session.metadata.operatorName = value;
+        else if (m_fieldName == "Company") m_session.metadata.company = value;
+        else if (m_fieldName == "Laboratory") m_session.metadata.laboratory = value;
+        else if (m_fieldName == "Report Title") m_session.metadata.reportTitle = value;
+        else if (m_fieldName == "Comments") m_session.metadata.comments = value;
+
+        m_page->loadSessionMetadataOnly(m_session.metadata);
+        m_page->autoSaveSession();
+    }
+
+    ResultsPage *m_page;
+    MeasurementSession &m_session;
+    std::string m_fieldName;
+    std::string m_oldValue;
+    std::string m_newValue;
+};
 
 ResultsPage::ResultsPage(ResultsPresenter *presenter, QWidget *parent)
     : QWidget(parent)
@@ -495,6 +540,7 @@ QWidget* ResultsPage::createReportTab(QWidget *parent) {
     
     m_editComments = new QTextEdit(customBox);
     m_editComments->setMaximumHeight(80);
+    m_editComments->installEventFilter(this);
 
     formLayout->addRow(tr("Report Title:"), m_editReportTitle);
     formLayout->addRow(tr("Project Name:"), m_editProjectName);
@@ -561,25 +607,27 @@ QWidget* ResultsPage::createReportTab(QWidget *parent) {
 
     mainLayout->addWidget(previewBox, 1);
 
-    // Wire Customization Signals (Connect edits directly to updating active session metadata)
-    connect(m_editProjectName, &QLineEdit::textChanged, this, [this](const QString &text) {
-        m_currentSession.metadata.projectName = text.toStdString();
-    });
-    connect(m_editOperator, &QLineEdit::textChanged, this, [this](const QString &text) {
-        m_currentSession.metadata.operatorName = text.toStdString();
-    });
-    connect(m_editCompany, &QLineEdit::textChanged, this, [this](const QString &text) {
-        m_currentSession.metadata.company = text.toStdString();
-    });
-    connect(m_editLab, &QLineEdit::textChanged, this, [this](const QString &text) {
-        m_currentSession.metadata.laboratory = text.toStdString();
-    });
-    connect(m_editReportTitle, &QLineEdit::textChanged, this, [this](const QString &text) {
-        m_currentSession.metadata.reportTitle = text.toStdString();
-    });
-    connect(m_editComments, &QTextEdit::textChanged, this, [this]() {
-        m_currentSession.metadata.comments = m_editComments->toPlainText().toStdString();
-    });
+    // Wire Customization Signals (Connect edits directly to updating active session metadata with Undo/Redo support)
+    auto connectLineEdit = [this](QLineEdit *edit, const std::string &fieldName, std::string &memberVar) {
+        connect(edit, &QLineEdit::editingFinished, this, [this, edit, fieldName, &memberVar]() {
+            if (m_isUpdatingUI) return;
+            std::string oldValue = memberVar;
+            std::string newValue = edit->text().toStdString();
+            if (oldValue == newValue) return;
+
+            m_presenter->parentPresenter()->undoStack()->push(
+                new MetadataChangeCommand(this, m_currentSession, fieldName, oldValue, newValue)
+            );
+            memberVar = newValue;
+            autoSaveSession();
+        });
+    };
+
+    connectLineEdit(m_editProjectName, "Project Name", m_currentSession.metadata.projectName);
+    connectLineEdit(m_editOperator, "Operator Name", m_currentSession.metadata.operatorName);
+    connectLineEdit(m_editCompany, "Company", m_currentSession.metadata.company);
+    connectLineEdit(m_editLab, "Laboratory", m_currentSession.metadata.laboratory);
+    connectLineEdit(m_editReportTitle, "Report Title", m_currentSession.metadata.reportTitle);
 
     // Wire Command Buttons
     connect(m_btnPreviewReport, &QPushButton::clicked, this, [this]() {
@@ -656,7 +704,8 @@ QWidget* ResultsPage::createReportTab(QWidget *parent) {
 
         // 4. Generate real PDF from HTML report
         if (htmlReport) {
-            QPdfWriter pdfWriter(m_lastReportFolderPath + "/Report.pdf");
+            QString pdfPath = m_lastReportFolderPath + "/Report.pdf";
+            QPdfWriter pdfWriter(pdfPath);
             pdfWriter.setPageSize(QPageSize(QPageSize::A4));
             pdfWriter.setPageOrientation(QPageLayout::Portrait);
             pdfWriter.setPageMargins(QMarginsF(15, 15, 15, 15), QPageLayout::Millimeter);
@@ -665,6 +714,11 @@ QWidget* ResultsPage::createReportTab(QWidget *parent) {
             doc.setHtml(QString::fromStdString(htmlReport->getContent()));
             doc.setPageSize(QSizeF(pdfWriter.width(), pdfWriter.height()));
             doc.print(&pdfWriter);
+
+            MainWindow *win = qobject_cast<MainWindow*>(m_presenter->parentPresenter()->parent());
+            if (win) {
+                win->settingsManager()->addRecentFile("Recent/Reports", pdfPath);
+            }
         }
 
         m_btnOpenFolder->setEnabled(true);
@@ -785,9 +839,18 @@ void ResultsPage::onSessionSelected(QTreeWidgetItem *item, int column) {
 }
 
 void ResultsPage::loadSessionToUI(const MeasurementSession &session) {
+    m_isUpdatingUI = true;
     m_currentSession = session;
     m_markers.clear();
     updateMarkersUI();
+
+    if (!session.sessionName.empty()) {
+        QString sessionPath = QString("Sessions/%1_session.txt").arg(QString::fromStdString(session.sessionName));
+        MainWindow *win = qobject_cast<MainWindow*>(m_presenter->parentPresenter()->parent());
+        if (win) {
+            win->settingsManager()->addRecentFile("Recent/Sessions", sessionPath);
+        }
+    }
 
     // Populate report customization widgets (blocking signals to avoid self-triggering updates)
     if (m_editProjectName) {
@@ -963,6 +1026,15 @@ void ResultsPage::loadSessionToUI(const MeasurementSession &session) {
         setCell(i, 3, pt.angleDeg);
         setCell(i, 4, pt.returnLossDb);
     }
+    
+    MainWindow *win = qobject_cast<MainWindow*>(m_presenter->parentPresenter()->parent());
+    if (win) {
+        bool gridVisible = win->settingsManager()->getValue("Plot/GridVisible", true).toBool();
+        bool markersVisible = win->settingsManager()->getValue("Plot/MarkerVisible", true).toBool();
+        applyPlotSettings(gridVisible, markersVisible);
+    }
+
+    m_isUpdatingUI = false;
 }
 
 void ResultsPage::onAddMarkerClicked() {
@@ -1041,6 +1113,62 @@ void ResultsPage::updateMarkersUI() {
     if (m_phasePlot) m_phasePlot->setMarkers(markerFreqsGhz);
     if (m_polarPlot) m_polarPlot->setMarkers(markerPolarPoints);
     if (m_smithChart) m_smithChart->setMarkers(markerFreqsHz);
+}
+
+void ResultsPage::loadSessionMetadataOnly(const SessionMetadata &metadata) {
+    m_isUpdatingUI = true;
+    if (m_editProjectName) m_editProjectName->setText(QString::fromStdString(metadata.projectName));
+    if (m_editOperator) m_editOperator->setText(QString::fromStdString(metadata.operatorName));
+    if (m_editCompany) m_editCompany->setText(QString::fromStdString(metadata.company));
+    if (m_editLab) m_editLab->setText(QString::fromStdString(metadata.laboratory));
+    if (m_editReportTitle) m_editReportTitle->setText(QString::fromStdString(metadata.reportTitle));
+    if (m_editComments) m_editComments->setPlainText(QString::fromStdString(metadata.comments));
+    m_isUpdatingUI = false;
+}
+
+void ResultsPage::autoSaveSession() {
+    if (!m_currentSession.sessionName.empty()) {
+        QDir dir;
+        dir.mkpath("Sessions");
+        QString filePath = QString("Sessions/%1_session.txt").arg(QString::fromStdString(m_currentSession.sessionName));
+        m_currentSession.serialize(filePath.toStdString());
+    }
+}
+
+void ResultsPage::applyPlotSettings(bool gridVisible, bool markersVisible) {
+    if (m_magPlot) {
+        m_magPlot->setGridVisible(gridVisible);
+        m_magPlot->setMarkersVisible(markersVisible);
+    }
+    if (m_phasePlot) {
+        m_phasePlot->setGridVisible(gridVisible);
+        m_phasePlot->setMarkersVisible(markersVisible);
+    }
+    if (m_polarPlot) {
+        m_polarPlot->setGridVisible(gridVisible);
+        m_polarPlot->setMarkersVisible(markersVisible);
+    }
+    if (m_smithChart) {
+        m_smithChart->setGridVisible(gridVisible);
+        m_smithChart->setMarkersVisible(markersVisible);
+    }
+}
+
+bool ResultsPage::eventFilter(QObject *watched, QEvent *event) {
+    if (watched == m_editComments && event->type() == QEvent::FocusOut) {
+        if (!m_isUpdatingUI) {
+            std::string oldValue = m_currentSession.metadata.comments;
+            std::string newValue = m_editComments->toPlainText().toStdString();
+            if (oldValue != newValue) {
+                m_presenter->parentPresenter()->undoStack()->push(
+                    new MetadataChangeCommand(this, m_currentSession, "Comments", oldValue, newValue)
+                );
+                m_currentSession.metadata.comments = newValue;
+                autoSaveSession();
+            }
+        }
+    }
+    return QWidget::eventFilter(watched, event);
 }
 
 } // namespace AMAS

@@ -17,6 +17,10 @@ public:
     void setValue(const QString &key, const QVariant &value);
     QVariant getValue(const QString &key, const QVariant &defaultValue = QVariant()) const;
 
+    QStringList getRecentFiles(const QString &key) const;
+    void addRecentFile(const QString &key, const QString &filePath);
+    void clearRecentFiles(const QString &key);
+
     void sync();
 
 private:

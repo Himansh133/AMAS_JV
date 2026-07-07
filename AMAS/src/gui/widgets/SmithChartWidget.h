@@ -28,6 +28,10 @@ public:
     // Save plot image to a file
     bool savePng(const QString &filePath);
 
+    // Toggle grid/markers visibility
+    void setGridVisible(bool visible);
+    void setMarkersVisible(bool visible);
+
 public slots:
     void onResetViewClicked();
     void onExportClicked();
@@ -60,6 +64,8 @@ private:
     QPoint m_lastMousePos;
     bool m_isPanning = false;
     QPoint m_hoverPos;
+    bool m_gridVisible = true;
+    bool m_markersVisible = true;
 };
 
 } // namespace AMAS

@@ -130,6 +130,12 @@ set(SOURCES
     src/gui/ResultsPage.cpp
     src/gui/ProfileManagerPage.h
     src/gui/ProfileManagerPage.cpp
+    src/gui/SettingsPage.h
+    src/gui/SettingsPage.cpp
+    src/gui/HelpDialogs.h
+    src/gui/HelpDialogs.cpp
+    src/gui/widgets/LogConsoleWidget.h
+    src/gui/widgets/LogConsoleWidget.cpp
     src/gui/framework/ActionManager.h
     src/gui/framework/ActionManager.cpp
     src/gui/framework/CommandManager.h

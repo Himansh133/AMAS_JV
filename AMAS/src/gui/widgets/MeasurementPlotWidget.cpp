@@ -311,4 +311,13 @@ bool MeasurementPlotWidget::savePng(const QString &filePath) {
     return pixmap.save(filePath, "PNG");
 }
 
+void MeasurementPlotWidget::setGridVisible(bool visible) {
+    if (m_axisX) m_axisX->setGridLineVisible(visible);
+    if (m_axisY) m_axisY->setGridLineVisible(visible);
+}
+
+void MeasurementPlotWidget::setMarkersVisible(bool visible) {
+    if (m_markerSeries) m_markerSeries->setVisible(visible);
+}
+
 } // namespace AMAS

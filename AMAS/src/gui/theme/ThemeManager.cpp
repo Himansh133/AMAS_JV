@@ -276,7 +276,8 @@ QString ThemeManager::getStyleSheet() {
     .arg(Card);         // %7
 }
 
-void ThemeManager::applyTheme(QApplication *app) {
+void ThemeManager::applyTheme(QApplication *app, const QString &themeName) {
+    Q_UNUSED(themeName);
     if (app) {
         app->setStyleSheet(getStyleSheet());
     }

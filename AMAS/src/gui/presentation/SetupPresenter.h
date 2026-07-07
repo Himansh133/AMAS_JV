@@ -22,6 +22,7 @@ public:
 
     QStringList getAvailableCalibrations() const;
     std::shared_ptr<MeasurementController> controller() const;
+    MeasurementPresenter* parentPresenter() const { return m_parent; }
 
 signals:
     void profileUpdated(const MeasurementProfile &profile);

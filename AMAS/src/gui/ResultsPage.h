@@ -29,6 +29,14 @@ public:
     explicit ResultsPage(ResultsPresenter *presenter, QWidget *parent = nullptr);
     ~ResultsPage() override;
 
+    void loadSessionToUI(const MeasurementSession &session);
+    void loadSessionMetadataOnly(const SessionMetadata &metadata);
+    void applyPlotSettings(bool gridVisible, bool markersVisible);
+    void autoSaveSession();
+
+protected:
+    bool eventFilter(QObject *watched, QEvent *event) override;
+
 private:
     void createBrowserPanel(QWidget *parent);
     void createWorkspacePanel(QWidget *parent);
@@ -45,7 +53,6 @@ private:
     QWidget* createReportTab(QWidget *parent);
 
     void createBottomStatusBar(QHBoxLayout *layout);
-    void loadSessionToUI(const MeasurementSession &session);
 
     // Sidebar widgets
     QTreeWidget *m_treeBrowser;
@@ -140,6 +147,7 @@ private:
     };
     std::vector<EngineeringMarker> m_markers;
     MeasurementSession m_currentSession;
+    bool m_isUpdatingUI = false;
     void updateMarkersUI();
 };
 

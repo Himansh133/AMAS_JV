@@ -20,11 +20,23 @@
 
 namespace AMAS {
 
+class LogConsoleWidget;
+
 class MainWindow : public QMainWindow {
     Q_OBJECT
 public:
     explicit MainWindow(std::shared_ptr<MeasurementController> controller, QWidget *parent = nullptr);
     ~MainWindow() override = default;
+
+    SettingsManager* settingsManager() const { return m_settingsMgr; }
+
+    // Navigation triggers
+    void showDashboard();
+    void showDevices();
+    void showMeasurementSetup();
+    void showMeasurementProgress();
+    void showResults();
+    void showProfiles();
 
 protected:
     void closeEvent(QCloseEvent *event) override;
@@ -37,18 +49,19 @@ private:
     void createDockWidgets();
     void createStatusBarWidget();
 
-    // Navigation triggers called via CommandManager callbacks
-    void showDashboard();
-    void showDevices();
-    void showMeasurementSetup();
-    void showMeasurementProgress();
-    void showResults();
-    void showProfiles();
+
     void showSettings();
+
+    void logMessage(const QString &message, const QString &severity = "INFO", const QString &subsystem = "SYSTEM");
 
     // Clock updater
     void updateClock();
     void updateStatusBar();
+
+private:
+    void updateRecentSessionsMenu();
+    void updateRecentProfilesMenu();
+    void updateRecentReportsMenu();
 
     // Framework Managers
     ActionManager       *m_actionMgr;
@@ -59,11 +72,14 @@ private:
     // UI Components
     QStackedWidget *m_stackedWidget;
     QDockWidget    *m_logDock;
-    QTextEdit      *m_dockLogEdit;
+    LogConsoleWidget *m_logConsole;
 
     // Menu Bar Items
     QMenu *m_fileMenu;
     QMenu *m_recentMenu;
+    QMenu *m_menuRecentSessions;
+    QMenu *m_menuRecentProfiles;
+    QMenu *m_menuRecentReports;
     QMenu *m_devicesMenu;
     QMenu *m_measMenu;
     QMenu *m_viewMenu;

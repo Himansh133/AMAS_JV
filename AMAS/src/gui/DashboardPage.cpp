@@ -1,5 +1,13 @@
 #include "DashboardPage.h"
 #include "presentation/DashboardPresenter.h"
+#include "presentation/ResultsPresenter.h"
+#include "MainWindow.h"
+#include "framework/SettingsManager.h"
+#include "ResultsPage.h"
+#include "MeasurementSetupPage.h"
+#include <QFileInfo>
+#include <QDesktopServices>
+#include <QUrl>
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QGroupBox>
@@ -105,6 +113,29 @@ void DashboardPage::updateDashboardState() {
     m_logList->addItem(tr("Calibration Status: %1").arg(m_presenter->calibrationStatus()));
     m_logList->addItem(tr("Active Session: %1").arg(m_presenter->activeSession()));
     m_logList->addItem(tr("Last Measurement Time: %1").arg(m_presenter->lastMeasurementTime()));
+
+    // Populate recent lists
+    SettingsManager *mgr = getSettingsManager();
+    if (mgr) {
+        QStringList sessions = mgr->getRecentFiles("Recent/Sessions");
+        QStringList profiles = mgr->getRecentFiles("Recent/Profiles");
+        QStringList reports = mgr->getRecentFiles("Recent/Reports");
+
+        m_tableRecent->setRowCount(0);
+        m_tableRecent->setRowCount(10);
+
+        for (int i = 0; i < 10; ++i) {
+            auto setCell = [this, i](int col, const QString &text) {
+                auto *item = new QTableWidgetItem(text);
+                item->setTextAlignment(Qt::AlignCenter);
+                m_tableRecent->setItem(i, col, item);
+            };
+
+            setCell(0, i < sessions.size() ? QFileInfo(sessions[i]).fileName() : "");
+            setCell(1, i < profiles.size() ? profiles[i] : ""); // profile name is a key string
+            setCell(2, i < reports.size() ? QFileInfo(reports[i]).fileName() : "");
+        }
+    }
 }
 
 void DashboardPage::setupQuickActions() {
@@ -116,21 +147,19 @@ void DashboardPage::setupQuickActions() {
 }
 
 void DashboardPage::setupRecentTable() {
-    m_tableRecent = new QTableWidget(3, 5, this);
-    m_tableRecent->setMinimumHeight(120);
-    m_tableRecent->setMaximumHeight(150);
+    m_tableRecent = new QTableWidget(10, 3, this);
+    m_tableRecent->setMinimumHeight(150);
+    m_tableRecent->setMaximumHeight(200);
     m_tableRecent->setEditTriggers(QAbstractItemView::NoEditTriggers);
-    m_tableRecent->setSelectionBehavior(QAbstractItemView::SelectRows);
     m_tableRecent->setSelectionMode(QAbstractItemView::SingleSelection);
     m_tableRecent->setAlternatingRowColors(true);
     
     // Set headers
-    QStringList headers = { tr("Time"), tr("Measurement"), tr("RF Band"), tr("Status"), tr("Result") };
+    QStringList headers = { tr("Recent Sessions"), tr("Recent Profiles"), tr("Recent Reports") };
     m_tableRecent->setHorizontalHeaderLabels(headers);
     m_tableRecent->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
     m_tableRecent->verticalHeader()->setVisible(false);
 
-    // QSS formatting for borders
     m_tableRecent->setStyleSheet(
         "QTableWidget { "
         "  background-color: #2D2D30; "
@@ -139,30 +168,51 @@ void DashboardPage::setupRecentTable() {
         "} "
     );
 
-    // Mock data rows
-    auto setCell = [this](int r, int c, const QString &text) {
-        auto *item = new QTableWidgetItem(text);
-        item->setTextAlignment(Qt::AlignCenter);
-        m_tableRecent->setItem(r, c, item);
-    };
+    // Double click to open/load
+    connect(m_tableRecent, &QTableWidget::cellDoubleClicked, this, [this](int r, int c) {
+        auto *item = m_tableRecent->item(r, c);
+        if (!item || item->text().isEmpty()) return;
 
-    setCell(0, 0, tr("2026-07-01 10:15:30"));
-    setCell(0, 1, tr("Horn Antenna Pattern"));
-    setCell(0, 2, tr("8-12 GHz"));
-    setCell(0, 3, tr("Completed"));
-    setCell(0, 4, tr("12.4 dBi (Peak)"));
+        SettingsManager *mgr = getSettingsManager();
+        if (!mgr) return;
 
-    setCell(1, 0, tr("2026-07-01 11:22:12"));
-    setCell(1, 1, tr("Microstrip Patch S11"));
-    setCell(1, 2, tr("12-18 GHz"));
-    setCell(1, 3, tr("Completed"));
-    setCell(1, 4, tr("-18.5 dB (RL)"));
+        MainWindow *win = qobject_cast<MainWindow*>(m_presenter->parentPresenter()->parent());
+        if (!win) return;
 
-    setCell(2, 0, tr("2026-07-01 13:40:05"));
-    setCell(2, 1, tr("Dipole Radiation Sweep"));
-    setCell(2, 2, tr("1.8-2.4 GHz"));
-    setCell(2, 3, tr("Aborted"));
-    setCell(2, 4, tr("N/A"));
+        if (c == 0) { // Recent Session
+            QStringList sessions = mgr->getRecentFiles("Recent/Sessions");
+            if (r < sessions.size()) {
+                QString fullPath = sessions[r];
+                win->showResults();
+                ResultsPage *resPage = win->findChild<ResultsPage*>();
+                if (resPage) {
+                    MeasurementSession sess;
+                    if (m_presenter->parentPresenter()->results()->loadSession(QFileInfo(fullPath).fileName(), sess)) {
+                        resPage->loadSessionToUI(sess);
+                    }
+                }
+            }
+        } else if (c == 1) { // Recent Profile
+            QString profileName = item->text();
+            win->showMeasurementSetup();
+            MeasurementSetupPage *setupPage = win->findChild<MeasurementSetupPage*>();
+            if (setupPage) {
+                auto profiles = m_presenter->parentPresenter()->controller()->getProfiles();
+                for (const auto &p : profiles) {
+                    if (QString::fromStdString(p.profileName) == profileName) {
+                        m_presenter->parentPresenter()->controller()->setActiveProfile(p);
+                        setupPage->onProfileLoaded(p);
+                        break;
+                    }
+                }
+            }
+        } else if (c == 2) { // Recent Report
+            QStringList reports = mgr->getRecentFiles("Recent/Reports");
+            if (r < reports.size()) {
+                QDesktopServices::openUrl(QUrl::fromLocalFile(reports[r]));
+            }
+        }
+    });
 }
 
 void DashboardPage::setupLogPanel() {
@@ -171,14 +221,13 @@ void DashboardPage::setupLogPanel() {
     m_logList->setMaximumHeight(130);
     m_logList->setStyleSheet("border: none; background-color: #2D2D30;");
 
-    // Add some log placeholders
-    m_logList->addItem(tr("[14:00:00] [INFO ] AMAS Application started successfully."));
-    m_logList->addItem(tr("[14:00:01] [INFO ] Custom dark theme stylesheet applied."));
-    m_logList->addItem(tr("[14:00:02] [INFO ] Dashboard initialized with placeholder hardware states."));
-    m_logList->addItem(tr("[14:00:05] [WARN ] Positioner connection offline. COM3 port unavailable."));
-    
-    // Auto scroll to bottom
+    m_logList->addItem(tr("[14:00:00] [INFO ] AMAS Dashboard module initialized."));
     m_logList->scrollToBottom();
+}
+
+SettingsManager* DashboardPage::getSettingsManager() const {
+    MainWindow *win = qobject_cast<MainWindow*>(m_presenter->parentPresenter()->parent());
+    return win ? win->settingsManager() : nullptr;
 }
 
 } // namespace AMAS

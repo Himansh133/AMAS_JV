@@ -4,6 +4,13 @@
 #include <QMessageBox>
 #include <QTime>
 #include <QStatusBar>
+#include <QFileDialog>
+#include <QFileInfo>
+#include <QDesktopServices>
+#include <QUrl>
+#include "SettingsPage.h"
+#include "HelpDialogs.h"
+#include "widgets/LogConsoleWidget.h"
 
 #include "DashboardPage.h"
 #include "DevicesPage.h"
@@ -52,6 +59,25 @@ MainWindow::MainWindow(std::shared_ptr<MeasurementController> controller, QWidge
 void MainWindow::closeEvent(QCloseEvent *event) {
     // Save state using WindowStateManager
     m_windowStateMgr->saveState(this, m_stackedWidget->currentIndex());
+
+    // Auto save settings, active profile and session on close
+    m_settingsMgr->sync();
+
+    // Auto save active profile
+    MeasurementProfile prof = m_presenter->currentProfile();
+    if (!prof.profileName.empty()) {
+        m_presenter->controller()->saveProfile(prof);
+    }
+
+    // Auto save active session
+    MeasurementSession sess = m_presenter->controller()->getLatestSession();
+    if (!sess.sessionName.empty()) {
+        QDir dir;
+        dir.mkpath("Sessions");
+        QString filePath = QString("Sessions/%1_session.txt").arg(QString::fromStdString(sess.sessionName));
+        sess.serialize(filePath.toStdString());
+    }
+
     QMainWindow::closeEvent(event);
 }
 
@@ -78,26 +104,104 @@ void MainWindow::initializeFramework() {
     });
 
     m_commandMgr->registerCommand(ActionId::HelpAbout, [this]() {
-        QMessageBox::about(this, tr("About AMAS"),
-            tr("<h3>Antenna Measurement & Analysis Software (AMAS)</h3>"
-               "<p>Version 1.0.0</p>"
-               "<p>A professional industrial software framework for antenna sweeps, "
-               "processing, and automated radiation pattern extraction.</p>"));
+        AboutDialog dlg(this);
+        dlg.exec();
     });
+
+    m_commandMgr->registerCommand(ActionId::HelpDoc, [this]() {
+        UserManualDialog dlg(this);
+        dlg.exec();
+    });
+
+    // Wire Undo/Redo commands to QUndoStack
+    m_commandMgr->registerCommand(ActionId::EditUndo, [this]() {
+        m_presenter->undoStack()->undo();
+    });
+    m_commandMgr->registerCommand(ActionId::EditRedo, [this]() {
+        m_presenter->undoStack()->redo();
+    });
+
+    QAction *undoAct = m_actionMgr->getAction(ActionId::EditUndo);
+    QAction *redoAct = m_actionMgr->getAction(ActionId::EditRedo);
+    if (undoAct && redoAct) {
+        undoAct->setEnabled(m_presenter->undoStack()->canUndo());
+        redoAct->setEnabled(m_presenter->undoStack()->canRedo());
+
+        connect(m_presenter->undoStack(), &QUndoStack::canUndoChanged, undoAct, &QAction::setEnabled);
+        connect(m_presenter->undoStack(), &QUndoStack::canRedoChanged, redoAct, &QAction::setEnabled);
+
+        connect(m_presenter->undoStack(), &QUndoStack::undoTextChanged, this, [undoAct](const QString &text) {
+            undoAct->setText(tr("&Undo %1").arg(text));
+        });
+        connect(m_presenter->undoStack(), &QUndoStack::redoTextChanged, this, [redoAct](const QString &text) {
+            redoAct->setText(tr("&Redo %1").arg(text));
+        });
+    }
 
     // Logging closures for simulated commands
     auto logAction = [this](const QString &actionName) {
         return [this, actionName]() {
-            m_dockLogEdit->append(tr("[%1] [USER] Triggered action: %2")
-                                  .arg(QTime::currentTime().toString("hh:mm:ss"))
-                                  .arg(actionName));
+            logMessage(tr("Triggered action: %1").arg(actionName), "INFO", "USER");
         };
     };
 
-    m_commandMgr->registerCommand(ActionId::FileNewProfile, logAction(tr("New Profile")));
-    m_commandMgr->registerCommand(ActionId::FileOpenProfile, logAction(tr("Open Profile")));
-    m_commandMgr->registerCommand(ActionId::FileSaveProfile, logAction(tr("Save Profile")));
-    m_commandMgr->registerCommand(ActionId::FileSaveProfileAs, logAction(tr("Save Profile As")));
+    m_commandMgr->registerCommand(ActionId::FileNewProfile, [this]() {
+        showMeasurementSetup();
+        MeasurementSetupPage *setupPage = findChild<MeasurementSetupPage*>();
+        if (setupPage) {
+            MeasurementProfile blank;
+            blank.profileName = "NewProfile";
+            m_controller->setActiveProfile(blank);
+            setupPage->onProfileLoaded(blank);
+            logMessage(tr("Created a new profile 'NewProfile'"), "INFO", "USER");
+        }
+    });
+
+    m_commandMgr->registerCommand(ActionId::FileOpenProfile, [this]() {
+        showMeasurementSetup();
+        MeasurementSetupPage *setupPage = findChild<MeasurementSetupPage*>();
+        if (setupPage) {
+            QString fileName = QFileDialog::getOpenFileName(this, tr("Open Profile Configuration"), "", tr("Profile Files (*.txt *.json)"));
+            if (!fileName.isEmpty()) {
+                MeasurementProfile p;
+                if (p.loadFromFile(fileName.toStdString())) {
+                    m_controller->setActiveProfile(p);
+                    setupPage->onProfileLoaded(p);
+                    m_settingsMgr->addRecentFile("Recent/Profiles", QString::fromStdString(p.profileName));
+                    logMessage(tr("Loaded profile configuration '%1'").arg(QString::fromStdString(p.profileName)), "INFO", "USER");
+                } else {
+                    QMessageBox::warning(this, tr("Open Profile"), tr("Failed to load selected profile."));
+                    logMessage(tr("Failed to load profile configuration from file '%1'").arg(fileName), "ERROR", "USER");
+                }
+            }
+        }
+    });
+
+    m_commandMgr->registerCommand(ActionId::FileSaveProfile, [this]() {
+        showMeasurementSetup();
+        MeasurementSetupPage *setupPage = findChild<MeasurementSetupPage*>();
+        if (setupPage) {
+            setupPage->onSaveClicked();
+        }
+    });
+
+    m_commandMgr->registerCommand(ActionId::FileSaveProfileAs, [this]() {
+        showMeasurementSetup();
+        MeasurementSetupPage *setupPage = findChild<MeasurementSetupPage*>();
+        if (setupPage) {
+            QString fileName = QFileDialog::getSaveFileName(this, tr("Save Profile Configuration As"), "", tr("Profile Files (*.txt *.json)"));
+            if (!fileName.isEmpty()) {
+                MeasurementProfile p = m_presenter->currentProfile();
+                if (p.saveToFile(fileName.toStdString())) {
+                    m_settingsMgr->addRecentFile("Recent/Profiles", QString::fromStdString(p.profileName));
+                    logMessage(tr("Saved profile configuration as '%1'").arg(fileName), "INFO", "USER");
+                } else {
+                    QMessageBox::warning(this, tr("Save Profile As"), tr("Failed to save active profile."));
+                }
+            }
+        }
+    });
+
     m_commandMgr->registerCommand(ActionId::FileImportProfile, logAction(tr("Import Profile")));
     m_commandMgr->registerCommand(ActionId::FileExportProfile, logAction(tr("Export Profile")));
 
@@ -106,30 +210,38 @@ void MainWindow::initializeFramework() {
     m_commandMgr->registerCommand(ActionId::DeviceRefresh, logAction(tr("Refresh Devices")));
 
     m_commandMgr->registerCommand(ActionId::MeasStart, [this]() {
-        m_dockLogEdit->append(tr("[%1] [USER] Action: Start Measurement").arg(QTime::currentTime().toString("hh:mm:ss")));
+        logMessage(tr("Action: Start Measurement"), "INFO", "USER");
         showMeasurementProgress();
         m_presenter->progress()->startMeasurement();
     });
     m_commandMgr->registerCommand(ActionId::MeasPause, [this]() {
-        m_dockLogEdit->append(tr("[%1] [USER] Action: Pause Measurement").arg(QTime::currentTime().toString("hh:mm:ss")));
+        logMessage(tr("Action: Pause Measurement"), "WARNING", "USER");
         m_presenter->progress()->pauseMeasurement();
     });
     m_commandMgr->registerCommand(ActionId::MeasResume, [this]() {
-        m_dockLogEdit->append(tr("[%1] [USER] Action: Resume Measurement").arg(QTime::currentTime().toString("hh:mm:ss")));
+        logMessage(tr("Action: Resume Measurement"), "INFO", "USER");
         m_presenter->progress()->resumeMeasurement();
     });
     m_commandMgr->registerCommand(ActionId::MeasStop, [this]() {
-        m_dockLogEdit->append(tr("[%1] [USER] Action: Stop Measurement").arg(QTime::currentTime().toString("hh:mm:ss")));
+        logMessage(tr("Action: Stop Measurement"), "WARNING", "USER");
         m_presenter->progress()->stopMeasurement();
     });
     m_commandMgr->registerCommand(ActionId::MeasAbort, [this]() {
-        m_dockLogEdit->append(tr("[%1] [USER] Action: Abort Measurement").arg(QTime::currentTime().toString("hh:mm:ss")));
+        logMessage(tr("Action: Abort Measurement"), "ERROR", "USER");
         m_presenter->progress()->abortMeasurement();
     });
 
-    m_commandMgr->registerCommand(ActionId::ToolsPreferences, logAction(tr("Preferences")));
+    m_commandMgr->registerCommand(ActionId::ToolsPreferences, [this]() {
+        showSettings();
+    });
     m_commandMgr->registerCommand(ActionId::ToolsCalManager, logAction(tr("Calibration Manager")));
-    m_commandMgr->registerCommand(ActionId::HelpDoc, logAction(tr("Documentation")));
+    m_commandMgr->registerCommand(ActionId::ToolsValidate, [this]() {
+        showMeasurementSetup();
+        MeasurementSetupPage *setupPage = findChild<MeasurementSetupPage*>();
+        if (setupPage) {
+            setupPage->onValidateClicked();
+        }
+    });
 }
 
 void MainWindow::createMenus() {
@@ -141,23 +253,14 @@ void MainWindow::createMenus() {
     m_fileMenu->addAction(m_actionMgr->getAction(ActionId::FileSaveProfileAs));
     m_fileMenu->addSeparator();
 
-    // Recent Profiles Menu
-    m_recentMenu = m_fileMenu->addMenu(tr("&Recent Profiles"));
-    QStringList mockProfiles = {
-        "gain_horn_8_12.json",
-        "gain_patch_12_18.json",
-        "pattern_2d_horn.json",
-        "pattern_3d_array.json",
-        "s11_waveguide.json"
-    };
-    for (const QString &profile : mockProfiles) {
-        auto *act = m_recentMenu->addAction(profile);
-        connect(act, &QAction::triggered, this, [this, profile]() {
-            m_dockLogEdit->append(tr("[%1] [USER] Loaded recent profile: %2")
-                                  .arg(QTime::currentTime().toString("hh:mm:ss"))
-                                  .arg(profile));
-        });
-    }
+    // Recent Items Submenus
+    m_menuRecentSessions = m_fileMenu->addMenu(tr("&Recent Sessions"));
+    m_menuRecentProfiles = m_fileMenu->addMenu(tr("Recent &Profiles"));
+    m_menuRecentReports = m_fileMenu->addMenu(tr("Recent &Reports"));
+
+    connect(m_menuRecentSessions, &QMenu::aboutToShow, this, &MainWindow::updateRecentSessionsMenu);
+    connect(m_menuRecentProfiles, &QMenu::aboutToShow, this, &MainWindow::updateRecentProfilesMenu);
+    connect(m_menuRecentReports, &QMenu::aboutToShow, this, &MainWindow::updateRecentReportsMenu);
 
     m_fileMenu->addSeparator();
     m_fileMenu->addAction(m_actionMgr->getAction(ActionId::FileImportProfile));
@@ -246,19 +349,9 @@ void MainWindow::createCentralWidget() {
     m_stackedWidget->addWidget(profiles);
     connect(profiles, &ProfileManagerPage::editRequested, this, &MainWindow::showMeasurementSetup);
 
-    // Index 6: Settings placeholder
-    QStringList titles = { tr("Settings") };
-    for (const QString& title : titles) {
-        QWidget *page = new QWidget(m_stackedWidget);
-        QVBoxLayout *layout = new QVBoxLayout(page);
-        layout->setAlignment(Qt::AlignCenter);
-
-        QLabel *label = new QLabel(title, page);
-        label->setAlignment(Qt::AlignCenter);
-        label->setStyleSheet("font-size: 32px; font-weight: bold; color: #FFFFFF;");
-        layout->addWidget(label);
-        m_stackedWidget->addWidget(page);
-    }
+    // Index 6: Settings Page
+    auto *settingsPage = new SettingsPage(m_settingsMgr, m_presenter, this);
+    m_stackedWidget->addWidget(settingsPage);
 
     setCentralWidget(m_stackedWidget);
 }
@@ -268,23 +361,11 @@ void MainWindow::createDockWidgets() {
     m_logDock->setObjectName("ApplicationLogDockWidget");
     m_logDock->setAllowedAreas(Qt::BottomDockWidgetArea | Qt::LeftDockWidgetArea | Qt::RightDockWidgetArea);
 
-    m_dockLogEdit = new QTextEdit(m_logDock);
-    m_dockLogEdit->setReadOnly(true);
-    m_dockLogEdit->setStyleSheet(
-        "QTextEdit { "
-        "  background-color: #1E1E1E; "
-        "  border: none; "
-        "  font-family: Consolas, 'Courier New', monospace; "
-        "  font-size: 11px; "
-        "  color: #C8C8C8; "
-        "} "
-    );
-
-    m_logDock->setWidget(m_dockLogEdit);
+    m_logConsole = new LogConsoleWidget(m_logDock);
+    m_logDock->setWidget(m_logConsole);
     addDockWidget(Qt::BottomDockWidgetArea, m_logDock);
 
-    m_dockLogEdit->append(tr("[%1] [SYSTEM] AMAS Application Core Initialized.")
-                          .arg(QTime::currentTime().toString("hh:mm:ss")));
+    logMessage(tr("AMAS Application Core Initialized."), "SUCCESS", "SYSTEM");
 }
 
 void MainWindow::createStatusBarWidget() {
@@ -347,6 +428,78 @@ void MainWindow::updateStatusBar() {
 
     // 4. System State
     m_lblAppState->setText(tr("State: %1").arg(m_presenter->systemState()));
+}
+
+void MainWindow::logMessage(const QString &message, const QString &severity, const QString &subsystem) {
+    if (m_logConsole) {
+        m_logConsole->addLog(message, severity, subsystem);
+    }
+}
+
+void MainWindow::updateRecentSessionsMenu() {
+    m_menuRecentSessions->clear();
+    QStringList files = m_settingsMgr->getRecentFiles("Recent/Sessions");
+    if (files.isEmpty()) {
+        auto *act = m_menuRecentSessions->addAction(tr("No Recent Sessions"));
+        act->setEnabled(false);
+        return;
+    }
+    for (const QString &file : files) {
+        auto *act = m_menuRecentSessions->addAction(QFileInfo(file).fileName());
+        connect(act, &QAction::triggered, this, [this, file]() {
+            showResults();
+            ResultsPage *resPage = findChild<ResultsPage*>();
+            if (resPage) {
+                MeasurementSession sess;
+                if (m_presenter->results()->loadSession(QFileInfo(file).fileName(), sess)) {
+                    resPage->loadSessionToUI(sess);
+                }
+            }
+        });
+    }
+}
+
+void MainWindow::updateRecentProfilesMenu() {
+    m_menuRecentProfiles->clear();
+    QStringList files = m_settingsMgr->getRecentFiles("Recent/Profiles");
+    if (files.isEmpty()) {
+        auto *act = m_menuRecentProfiles->addAction(tr("No Recent Profiles"));
+        act->setEnabled(false);
+        return;
+    }
+    for (const QString &file : files) {
+        auto *act = m_menuRecentProfiles->addAction(file); // profileName is stored as is
+        connect(act, &QAction::triggered, this, [this, file]() {
+            showMeasurementSetup();
+            MeasurementSetupPage *setupPage = findChild<MeasurementSetupPage*>();
+            if (setupPage) {
+                auto profiles = m_controller->getProfiles();
+                for (const auto &p : profiles) {
+                    if (QString::fromStdString(p.profileName) == file) {
+                        m_controller->setActiveProfile(p);
+                        setupPage->onProfileLoaded(p);
+                        break;
+                    }
+                }
+            }
+        });
+    }
+}
+
+void MainWindow::updateRecentReportsMenu() {
+    m_menuRecentReports->clear();
+    QStringList files = m_settingsMgr->getRecentFiles("Recent/Reports");
+    if (files.isEmpty()) {
+        auto *act = m_menuRecentReports->addAction(tr("No Recent Reports"));
+        act->setEnabled(false);
+        return;
+    }
+    for (const QString &file : files) {
+        auto *act = m_menuRecentReports->addAction(QFileInfo(file).fileName());
+        connect(act, &QAction::triggered, this, [file]() {
+            QDesktopServices::openUrl(QUrl::fromLocalFile(file));
+        });
+    }
 }
 
 } // namespace AMAS

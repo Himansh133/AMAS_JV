@@ -99,15 +99,18 @@ private:
     bool validateInputs();
     bool validateInputsSilently() const;
 
-private slots:
+public slots:
     void onSaveClicked();
     void onValidateClicked();
     void onProfileLoaded(const MeasurementProfile &profile);
+
+private slots:
     void onCalBrowseClicked();
     void onSetupControlChanged();
 
 private:
     SetupPresenter *m_presenter;
+    bool            m_isUpdatingUI = false;
 };
 
 } // namespace AMAS

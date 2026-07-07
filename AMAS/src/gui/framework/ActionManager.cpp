@@ -24,14 +24,16 @@ void ActionManager::initializeActions() {
     createAction(ActionId::FileImportProfile, tr("&Import Profile..."), tr("Import profile configuration file"), QKeySequence(), QStyle::SP_DialogOpenButton);
     createAction(ActionId::FileExportProfile, tr("&Export Profile..."), tr("Export profile configuration file"), QKeySequence(), QStyle::SP_DialogSaveButton);
     createAction(ActionId::FileExit, tr("E&xit"), tr("Close the application"), QKeySequence(Qt::CTRL | Qt::Key_Q), QStyle::SP_DialogCancelButton);
+    createAction(ActionId::EditUndo, tr("&Undo"), tr("Undo last action"), QKeySequence::Undo, QStyle::SP_ArrowBack);
+    createAction(ActionId::EditRedo, tr("&Redo"), tr("Redo last action"), QKeySequence::Redo, QStyle::SP_ArrowForward);
 
     // Devices
     createAction(ActionId::DeviceConnect, tr("&Connect Devices"), tr("Connect all configured laboratory instruments"), QKeySequence(), QStyle::SP_DialogYesButton);
     createAction(ActionId::DeviceDisconnect, tr("&Disconnect Devices"), tr("Disconnect from all hardware"), QKeySequence(), QStyle::SP_DialogNoButton);
-    createAction(ActionId::DeviceRefresh, tr("&Refresh Devices"), tr("Refresh instrument diagnostic connections"), QKeySequence(Qt::Key_F5), QStyle::SP_BrowserReload);
+    createAction(ActionId::DeviceRefresh, tr("&Refresh Devices"), tr("Refresh instrument diagnostic connections"), QKeySequence(Qt::CTRL | Qt::Key_R), QStyle::SP_BrowserReload);
 
     // Measurement
-    createAction(ActionId::MeasStart, tr("&Start Measurement"), tr("Start the configured coordinated sweep run"), QKeySequence(Qt::Key_F9), QStyle::SP_MediaPlay);
+    createAction(ActionId::MeasStart, tr("&Start Measurement"), tr("Start the configured coordinated sweep run"), QKeySequence(Qt::Key_F5), QStyle::SP_MediaPlay);
     createAction(ActionId::MeasPause, tr("&Pause"), tr("Pause the running measurement"), QKeySequence(Qt::Key_F10), QStyle::SP_MediaPause);
     createAction(ActionId::MeasResume, tr("&Resume"), tr("Resume the paused measurement"), QKeySequence(), QStyle::SP_MediaPlay);
     createAction(ActionId::MeasStop, tr("S&top"), tr("Gracefully stop measurement after current sweep"), QKeySequence(Qt::Key_F11), QStyle::SP_MediaStop);
@@ -50,6 +52,7 @@ void ActionManager::initializeActions() {
     // Tools
     createAction(ActionId::ToolsPreferences, tr("&Preferences..."), tr("Open Preferences Dialog"), QKeySequence(), QStyle::SP_FileDialogInfoView);
     createAction(ActionId::ToolsCalManager, tr("&Calibration Manager..."), tr("Open Calibration Manager"), QKeySequence(), QStyle::SP_DialogSaveButton);
+    createAction(ActionId::ToolsValidate, tr("&Validate Configuration"), tr("Validate sweep profile setup configuration"), QKeySequence(Qt::Key_F9), QStyle::SP_DialogApplyButton);
 
     // Help
     createAction(ActionId::HelpDoc, tr("&Documentation"), tr("Open AMAS user help documentation"), QKeySequence(), QStyle::SP_MessageBoxQuestion);

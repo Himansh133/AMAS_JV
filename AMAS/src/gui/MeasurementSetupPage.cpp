@@ -11,8 +11,39 @@
 #include <QMessageBox>
 #include <QInputDialog>
 #include <cmath>
+#include <QUndoCommand>
+#include "presentation/MeasurementPresenter.h"
 
 namespace AMAS {
+
+class ProfileChangeCommand : public QUndoCommand {
+public:
+    ProfileChangeCommand(MeasurementPresenter *presenter, const MeasurementProfile &oldProfile, const MeasurementProfile &newProfile, QUndoCommand *parent = nullptr)
+        : QUndoCommand(parent)
+        , m_presenter(presenter)
+        , m_oldProfile(oldProfile)
+        , m_newProfile(newProfile)
+    {
+        setText(QObject::tr("Profile Edit"));
+    }
+
+    void undo() override {
+        m_presenter->setCurrentProfile(m_oldProfile);
+        m_presenter->controller()->setActiveProfile(m_oldProfile);
+        emit m_presenter->setup()->profileUpdated(m_oldProfile);
+    }
+
+    void redo() override {
+        m_presenter->setCurrentProfile(m_newProfile);
+        m_presenter->controller()->setActiveProfile(m_newProfile);
+        emit m_presenter->setup()->profileUpdated(m_newProfile);
+    }
+
+private:
+    MeasurementPresenter *m_presenter;
+    MeasurementProfile m_oldProfile;
+    MeasurementProfile m_newProfile;
+};
 
 MeasurementSetupPage::MeasurementSetupPage(SetupPresenter *presenter, QWidget *parent)
     : QWidget(parent)
@@ -628,8 +659,7 @@ void MeasurementSetupPage::onValidateClicked() {
 }
 
 void MeasurementSetupPage::onProfileLoaded(const MeasurementProfile &profile) {
-    // Block signals to prevent infinite update loop
-    blockSignals(true);
+    m_isUpdatingUI = true;
     m_txtName->setText(QString::fromStdString(profile.profileName));
     m_comboMeasType->setCurrentText(QString::fromStdString(profile.measurementType));
     m_spinStartFreq->setValue(profile.startFrequencyHz / 1e9);
@@ -642,7 +672,7 @@ void MeasurementSetupPage::onProfileLoaded(const MeasurementProfile &profile) {
     m_spinAzStart->setValue(profile.positioner.startAngleDeg);
     m_spinAzStop->setValue(profile.positioner.stopAngleDeg);
     m_spinAzStep->setValue(profile.positioner.stepAngleDeg);
-    blockSignals(false);
+    m_isUpdatingUI = false;
 
     updateSummary();
 }
@@ -660,25 +690,51 @@ void MeasurementSetupPage::onCalBrowseClicked() {
 }
 
 void MeasurementSetupPage::onSetupControlChanged() {
+    if (m_isUpdatingUI) return;
     if (!validateInputsSilently()) return;
 
-    MeasurementProfile profile = m_presenter->getProfile();
-    profile.profileName = m_txtName->text().toStdString();
-    profile.measurementType = m_comboMeasType->currentText().toStdString();
-    profile.startFrequencyHz = m_spinStartFreq->value() * 1e9;
-    profile.stopFrequencyHz = m_spinStopFreq->value() * 1e9;
-    profile.sweepPoints = m_spinPoints->value();
-    profile.ifBandwidthHz = m_spinIfBandwidth->value();
-    profile.outputPowerDbm = m_spinOutputPower->value();
-    profile.calibrationFile = m_lblCalFile->text().toStdString();
+    MeasurementProfile oldProfile = m_presenter->getProfile();
+    MeasurementProfile newProfile = oldProfile;
+    newProfile.profileName = m_txtName->text().toStdString();
+    newProfile.measurementType = m_comboMeasType->currentText().toStdString();
+    newProfile.startFrequencyHz = m_spinStartFreq->value() * 1e9;
+    newProfile.stopFrequencyHz = m_spinStopFreq->value() * 1e9;
+    newProfile.sweepPoints = m_spinPoints->value();
+    newProfile.ifBandwidthHz = m_spinIfBandwidth->value();
+    newProfile.outputPowerDbm = m_spinOutputPower->value();
+    newProfile.calibrationFile = m_lblCalFile->text().toStdString();
 
-    profile.positioner.usePositioner = true;
-    profile.positioner.startAngleDeg = m_spinAzStart->value();
-    profile.positioner.stopAngleDeg = m_spinAzStop->value();
-    profile.positioner.stepAngleDeg = m_spinAzStep->value();
-    profile.positioner.settleTimeMs = 150;
+    newProfile.positioner.usePositioner = true;
+    newProfile.positioner.startAngleDeg = m_spinAzStart->value();
+    newProfile.positioner.stopAngleDeg = m_spinAzStop->value();
+    newProfile.positioner.stepAngleDeg = m_spinAzStep->value();
+    newProfile.positioner.settleTimeMs = 150;
 
-    m_presenter->updateProfile(profile);
+    // Check if anything actually changed to prevent command spam
+    if (oldProfile.profileName == newProfile.profileName &&
+        oldProfile.measurementType == newProfile.measurementType &&
+        std::abs(oldProfile.startFrequencyHz - newProfile.startFrequencyHz) < 1.0 &&
+        std::abs(oldProfile.stopFrequencyHz - newProfile.stopFrequencyHz) < 1.0 &&
+        oldProfile.sweepPoints == newProfile.sweepPoints &&
+        std::abs(oldProfile.ifBandwidthHz - newProfile.ifBandwidthHz) < 0.1 &&
+        std::abs(oldProfile.outputPowerDbm - newProfile.outputPowerDbm) < 0.1 &&
+        oldProfile.calibrationFile == newProfile.calibrationFile &&
+        std::abs(oldProfile.positioner.startAngleDeg - newProfile.positioner.startAngleDeg) < 0.01 &&
+        std::abs(oldProfile.positioner.stopAngleDeg - newProfile.positioner.stopAngleDeg) < 0.01 &&
+        std::abs(oldProfile.positioner.stepAngleDeg - newProfile.positioner.stepAngleDeg) < 0.01)
+    {
+        return;
+    }
+
+    // Push Undo Command
+    m_presenter->parentPresenter()->undoStack()->push(new ProfileChangeCommand(m_presenter->parentPresenter(), oldProfile, newProfile));
+
+    // Update active profile in presenter/controller
+    m_presenter->updateProfile(newProfile);
+    
+    // Auto Save active profile
+    m_presenter->controller()->saveProfile(newProfile);
+    
     updateSummary();
 }
 

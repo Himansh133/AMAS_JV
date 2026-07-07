@@ -18,6 +18,7 @@ MeasurementPresenter::MeasurementPresenter(std::shared_ptr<MeasurementController
     , m_resultsPresenter(nullptr)
     , m_profilePresenter(nullptr)
     , m_systemState("Idle")
+    , m_undoStack(new QUndoStack(this))
 {
     // Establish Controller Signal connections
     connect(m_controller.get(), &MeasurementController::deviceConnected, this, &MeasurementPresenter::deviceConnectionChanged);
@@ -109,6 +110,10 @@ QString MeasurementPresenter::systemState() const {
 void MeasurementPresenter::setSystemState(const QString &state) {
     m_systemState = state;
     emit stateChanged();
+}
+
+QUndoStack* MeasurementPresenter::undoStack() const {
+    return m_undoStack;
 }
 
 } // namespace AMAS

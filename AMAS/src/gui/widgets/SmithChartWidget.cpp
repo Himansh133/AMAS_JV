@@ -278,54 +278,56 @@ void SmithChartWidget::paintEvent(QPaintEvent *event) {
     painter.drawEllipse(pCenter0, radius0, radius0);
 
     // Circular clip path for drawing resistance/reactance grids inside boundaries
-    painter.save();
-    QPainterPath clipPath;
-    clipPath.addEllipse(pCenter0, radius0, radius0);
-    painter.setClipPath(clipPath);
+    if (m_gridVisible) {
+        painter.save();
+        QPainterPath clipPath;
+        clipPath.addEllipse(pCenter0, radius0, radius0);
+        painter.setClipPath(clipPath);
 
-    // Grid pen
-    QColor gridColor("#3F3F46");
-    gridColor.setAlpha(160);
-    QPen gridPen(gridColor);
-    gridPen.setWidth(1);
-    painter.setPen(gridPen);
-    painter.setBrush(Qt::NoBrush);
+        // Grid pen
+        QColor gridColor("#3F3F46");
+        gridColor.setAlpha(160);
+        QPen gridPen(gridColor);
+        gridPen.setWidth(1);
+        painter.setPen(gridPen);
+        painter.setBrush(Qt::NoBrush);
 
-    // Constant resistance circles
-    std::vector<double> rValues = { 0.2, 0.5, 1.0, 2.0, 5.0 };
-    for (double r : rValues) {
-        double xc = r / (r + 1.0);
-        double rad = 1.0 / (r + 1.0);
-        QPointF pc = mapToPixel(xc, 0.0, chartRect);
-        double pRad = rad * radius0;
-        painter.drawEllipse(pc, pRad, pRad);
-    }
-
-    // Constant reactance arcs
-    std::vector<double> xValues = { 0.2, 0.5, 1.0, 2.0, 5.0 };
-    for (double x : xValues) {
-        // Upper Reactance (positive)
-        {
-            double yc = 1.0 / x;
-            double rad = 1.0 / x;
-            QPointF pc = mapToPixel(1.0, yc, chartRect);
+        // Constant resistance circles
+        std::vector<double> rValues = { 0.2, 0.5, 1.0, 2.0, 5.0 };
+        for (double r : rValues) {
+            double xc = r / (r + 1.0);
+            double rad = 1.0 / (r + 1.0);
+            QPointF pc = mapToPixel(xc, 0.0, chartRect);
             double pRad = rad * radius0;
             painter.drawEllipse(pc, pRad, pRad);
         }
-        // Lower Reactance (negative)
-        {
-            double yc = -1.0 / x;
-            double rad = 1.0 / x;
-            QPointF pc = mapToPixel(1.0, yc, chartRect);
-            double pRad = rad * radius0;
-            painter.drawEllipse(pc, pRad, pRad);
+
+        // Constant reactance arcs
+        std::vector<double> xValues = { 0.2, 0.5, 1.0, 2.0, 5.0 };
+        for (double x : xValues) {
+            // Upper Reactance (positive)
+            {
+                double yc = 1.0 / x;
+                double rad = 1.0 / x;
+                QPointF pc = mapToPixel(1.0, yc, chartRect);
+                double pRad = rad * radius0;
+                painter.drawEllipse(pc, pRad, pRad);
+            }
+            // Lower Reactance (negative)
+            {
+                double yc = -1.0 / x;
+                double rad = 1.0 / x;
+                QPointF pc = mapToPixel(1.0, yc, chartRect);
+                double pRad = rad * radius0;
+                painter.drawEllipse(pc, pRad, pRad);
+            }
         }
+
+        // Horizontal centerline
+        painter.drawLine(mapToPixel(-1.0, 0.0, chartRect), mapToPixel(1.0, 0.0, chartRect));
+
+        painter.restore();
     }
-
-    // Horizontal centerline
-    painter.drawLine(mapToPixel(-1.0, 0.0, chartRect), mapToPixel(1.0, 0.0, chartRect));
-
-    painter.restore();
 
     // Outer circle boundary line
     QPen outerPen(QColor("#FFFFFF"));
@@ -366,37 +368,49 @@ void SmithChartWidget::paintEvent(QPaintEvent *event) {
     painter.drawPath(tracePath);
 
     // Draw active markers
-    int markerIdx = 1;
-    for (double fHz : m_markerFreqs) {
-        const ProcessedMeasurementPoint *mPoint = nullptr;
-        double minDiff = 9999.0;
-        for (const auto &p : m_points) {
-            double diff = std::abs(p.frequencyHz - fHz);
-            if (diff < minDiff) {
-                minDiff = diff;
-                mPoint = &p;
+    if (m_markersVisible) {
+        int markerIdx = 1;
+        for (double fHz : m_markerFreqs) {
+            const ProcessedMeasurementPoint *mPoint = nullptr;
+            double minDiff = 9999.0;
+            for (const auto &p : m_points) {
+                double diff = std::abs(p.frequencyHz - fHz);
+                if (diff < minDiff) {
+                    minDiff = diff;
+                    mPoint = &p;
+                }
+            }
+
+            if (mPoint) {
+                double r = std::pow(10.0, mPoint->magnitudeDb / 20.0);
+                double theta = mPoint->phaseDeg * M_PI / 180.0;
+                double re = r * std::cos(theta);
+                double im = r * std::sin(theta);
+                QPointF pPoint = mapToPixel(re, im, chartRect);
+
+                // Red square marker point
+                painter.setPen(Qt::NoPen);
+                painter.setBrush(QColor("#FF4C4C"));
+                painter.drawRect(QRectF(pPoint.x() - 4, pPoint.y() - 4, 8, 8));
+
+                // Marker label text
+                painter.setPen(QColor("#FFFFFF"));
+                painter.setFont(QFont("Segoe UI", 9, QFont::Bold));
+                painter.drawText(pPoint.x() + 8, pPoint.y() - 4, QString("M%1").arg(markerIdx));
+                markerIdx++;
             }
         }
-
-        if (mPoint) {
-            double r = std::pow(10.0, mPoint->magnitudeDb / 20.0);
-            double theta = mPoint->phaseDeg * M_PI / 180.0;
-            double re = r * std::cos(theta);
-            double im = r * std::sin(theta);
-            QPointF pPoint = mapToPixel(re, im, chartRect);
-
-            // Red square marker point
-            painter.setPen(Qt::NoPen);
-            painter.setBrush(QColor("#FF4C4C"));
-            painter.drawRect(QRectF(pPoint.x() - 4, pPoint.y() - 4, 8, 8));
-
-            // Marker label text
-            painter.setPen(QColor("#FFFFFF"));
-            painter.setFont(QFont("Segoe UI", 9, QFont::Bold));
-            painter.drawText(pPoint.x() + 8, pPoint.y() - 4, QString("M%1").arg(markerIdx));
-            markerIdx++;
-        }
     }
+}
+
+void SmithChartWidget::setGridVisible(bool visible) {
+    m_gridVisible = visible;
+    update();
+}
+
+void SmithChartWidget::setMarkersVisible(bool visible) {
+    m_markersVisible = visible;
+    update();
 }
 
 } // namespace AMAS

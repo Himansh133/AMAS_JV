@@ -56,6 +56,10 @@ public:
     // Save plot image to a file
     bool savePng(const QString &filePath);
 
+    // Toggle grid/markers visibility
+    void setGridVisible(bool visible);
+    void setMarkersVisible(bool visible);
+
 public slots:
     void onMouseMoved(const QPoint &pos);
     void onResetViewClicked();

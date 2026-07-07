@@ -13,6 +13,8 @@ public:
     explicit DashboardPresenter(MeasurementPresenter *parent);
     ~DashboardPresenter() override = default;
 
+    MeasurementPresenter* parentPresenter() const { return m_parent; }
+
     QString currentProfileName() const;
     QString calibrationStatus() const;
     QString systemState() const;

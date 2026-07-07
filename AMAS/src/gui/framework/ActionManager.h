@@ -17,6 +17,8 @@ enum class ActionId {
     FileImportProfile,
     FileExportProfile,
     FileExit,
+    EditUndo,
+    EditRedo,
 
     // Devices
     DeviceConnect,
@@ -43,6 +45,7 @@ enum class ActionId {
     // Tools
     ToolsPreferences,
     ToolsCalManager,
+    ToolsValidate,
 
     // Help
     HelpDoc,

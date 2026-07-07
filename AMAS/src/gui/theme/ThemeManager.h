@@ -12,7 +12,7 @@ public:
     static QString getStyleSheet();
 
     // Apply the theme globally to the QApplication instance
-    static void applyTheme(QApplication *app);
+    static void applyTheme(QApplication *app, const QString &themeName = "Dark");
 };
 
 } // namespace AMAS

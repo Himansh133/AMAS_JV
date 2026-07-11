@@ -16,7 +16,9 @@
 
 namespace AMAS {
 
+#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
 using namespace QtDataVisualization;
+#endif
 
 RadiationPattern3DWidget::RadiationPattern3DWidget(const QString &title, QWidget *parent)
     : QWidget(parent)
@@ -135,7 +137,13 @@ void RadiationPattern3DWidget::setupUI(const QString &title) {
 
 void RadiationPattern3DWidget::setup3DChart() {
     m_surface = new Q3DSurface();
+#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
     m_surface->setAntialiasing(true);
+#endif
+
+    // Aspect ratio settings for 3D graphs (making it a balanced cube rather than a flat box)
+    m_surface->setAspectRatio(1.0f);
+    m_surface->setHorizontalAspectRatio(1.0f);
 
     // Apply dark theme aesthetics
     Q3DTheme *theme = m_surface->activeTheme();
@@ -144,12 +152,25 @@ void RadiationPattern3DWidget::setup3DChart() {
     theme->setLabelBackgroundEnabled(false);
     theme->setLabelTextColor(QColor("#C8C8C8"));
     theme->setGridLineColor(QColor("#3F3F46"));
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+    theme->setFont(QFont("Segoe UI", 9));
+#else
     theme->setLabelFont(QFont("Segoe UI", 9));
+#endif
 
-    // Axis configs
+    // Axis configs (Set symmetric ranges from -1.0 to 1.0 to prevent clipping the spherical coordinates quadrants)
     m_surface->axisX()->setTitle(tr("X (Theta Direction)"));
     m_surface->axisY()->setTitle(tr("Y (Polar Height)"));
     m_surface->axisZ()->setTitle(tr("Z (Phi Direction)"));
+    
+    m_surface->axisX()->setAutoAdjustRange(false);
+    m_surface->axisY()->setAutoAdjustRange(false);
+    m_surface->axisZ()->setAutoAdjustRange(false);
+    
+    m_surface->axisX()->setRange(-1.0f, 1.0f);
+    m_surface->axisY()->setRange(-1.0f, 1.0f);
+    m_surface->axisZ()->setRange(-1.0f, 1.0f);
+
     m_surface->axisX()->setTitleVisible(true);
     m_surface->axisY()->setTitleVisible(true);
     m_surface->axisZ()->setTitleVisible(true);
@@ -309,9 +330,14 @@ void RadiationPattern3DWidget::onSliceChanged() {
 
 void RadiationPattern3DWidget::onShowAxesToggled(bool checked) {
     if (m_surface) {
-        m_surface->axisX()->setVisible(checked);
-        m_surface->axisY()->setVisible(checked);
-        m_surface->axisZ()->setVisible(checked);
+        Q3DTheme *theme = m_surface->activeTheme();
+        if (theme) {
+            theme->setLabelTextColor(checked ? QColor("#C8C8C8") : QColor(Qt::transparent));
+        }
+
+        m_surface->axisX()->setTitleVisible(checked);
+        m_surface->axisY()->setTitleVisible(checked);
+        m_surface->axisZ()->setTitleVisible(checked);
     }
 }
 

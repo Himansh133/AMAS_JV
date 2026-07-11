@@ -1,0 +1,18 @@
+# AMAS Measurement Session Summary
+sessionName=Session_001
+measurementType=Gain
+timestamp=2026-07-01 10:15
+bandName=8-12 GHz
+calibrationFile=calchamber8_12ghz.sta
+outputFolder=Session_001
+operatorName=Operator-01
+notes=Coordinated horn antenna scan.
+antennaModel=AUT-001
+projectName=Antenna Measurement Project
+company=RF Engineering Corp
+laboratory=Anechoic Chamber Lab
+reportTitle=Antenna Performance Evaluation
+comments=this is not actual data this is dummy data 
+
+
+resultsCount=3

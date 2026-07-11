@@ -1,0 +1,16 @@
+# AMAS Measurement Session Summary
+sessionName=New Session
+measurementType=S11
+timestamp=
+bandName=8-12 GHz
+calibrationFile=
+outputFolder=
+operatorName=Engineer
+notes=
+antennaModel=AUT-001
+projectName=Antenna Measurement Project
+company=RF Engineering Corp
+laboratory=Anechoic Chamber Lab
+reportTitle=Antenna Performance Evaluation
+comments=
+resultsCount=0

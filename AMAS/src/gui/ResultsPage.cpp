@@ -155,8 +155,39 @@ void ResultsPage::createBrowserPanel(QWidget *parent) {
     layout->setContentsMargins(0, 0, 8, 0);
     layout->setSpacing(8);
 
+    // Active Summary Group Box (Moved to sidebar to maximize plot workspace area)
+    auto *summaryBox = new QGroupBox(tr("Active Summary"), parent);
+    summaryBox->setStyleSheet(
+        "QGroupBox { font-weight: bold; color: #00E5FF; border: 1px solid #3F3F46; margin-bottom: 4px; padding-top: 10px; } "
+        "QLabel { font-size: 10px; color: #C8C8C8; }"
+    );
+    auto *summaryLayout = new QFormLayout(summaryBox);
+    summaryLayout->setContentsMargins(6, 6, 6, 6);
+    summaryLayout->setSpacing(4);
+    summaryLayout->setLabelAlignment(Qt::AlignRight);
+    summaryLayout->setFormAlignment(Qt::AlignLeft | Qt::AlignTop);
+
+    auto addSummaryLabel = [parent](const QString &tag, QLabel *&refLabel, const QString &valText, QFormLayout *fl) {
+        refLabel = new QLabel(valText, parent);
+        refLabel->setStyleSheet("color: #FFFFFF; font-weight: bold; font-size: 10px;");
+        fl->addRow(new QLabel(tag, parent), refLabel);
+    };
+
+    addSummaryLabel(tr("Name:"), m_lblSumName, tr("Horn_Gain_Sweep"), summaryLayout);
+    addSummaryLabel(tr("Type:"), m_lblSumType, tr("Gain Measurement"), summaryLayout);
+    addSummaryLabel(tr("Band:"), m_lblSumBand, tr("8-12 GHz"), summaryLayout);
+    addSummaryLabel(tr("Cal:"), m_lblSumCal, tr("calchamber8_12ghz.sta"), summaryLayout);
+    addSummaryLabel(tr("Date:"), m_lblSumDate, tr("2026-07-01 10:15"), summaryLayout);
+    addSummaryLabel(tr("Operator:"), m_lblSumOperator, tr("Operator-01"), summaryLayout);
+
+    m_lblSumStatus = new QLabel(tr("Completed"), parent);
+    m_lblSumStatus->setStyleSheet("color: #4CAF50; font-weight: bold; font-size: 10px;");
+    summaryLayout->addRow(new QLabel(tr("Status:"), parent), m_lblSumStatus);
+
+    layout->addWidget(summaryBox);
+
     auto *lblTitle = new QLabel(tr("Measurement Browser"), parent);
-    lblTitle->setStyleSheet("font-weight: bold; color: #FFFFFF; font-size: 14px;");
+    lblTitle->setStyleSheet("font-weight: bold; color: #FFFFFF; font-size: 14px; margin-top: 6px;");
     layout->addWidget(lblTitle);
 
     m_treeBrowser = new QTreeWidget(parent);
@@ -254,37 +285,9 @@ void ResultsPage::onSessionChanged() {
 void ResultsPage::createWorkspacePanel(QWidget *parent) {
     auto *layout = new QVBoxLayout(parent);
     layout->setContentsMargins(8, 0, 0, 0);
-    layout->setSpacing(16);
+    layout->setSpacing(8);
 
-    // Top Summary Box
-    auto *summaryBox = new QGroupBox(tr("Active Measurement Summary"), parent);
-    auto *summaryLayout = new QGridLayout(summaryBox);
-    summaryLayout->setContentsMargins(12, 12, 12, 12);
-    summaryLayout->setSpacing(12);
-
-    auto addSummaryLabel = [parent, summaryLayout](int r, int c, const QString &tag, QLabel *&refLabel, const QString &valText) {
-        summaryLayout->addWidget(new QLabel(tag, parent), r, c);
-        refLabel = new QLabel(valText, parent);
-        refLabel->setStyleSheet("color: #FFFFFF; font-weight: bold;");
-        summaryLayout->addWidget(refLabel, r, c + 1);
-    };
-
-    addSummaryLabel(0, 0, tr("Name:"), m_lblSumName, tr("Horn_Gain_Sweep"));
-    addSummaryLabel(0, 2, tr("Type:"), m_lblSumType, tr("Gain Measurement"));
-    addSummaryLabel(0, 4, tr("Date:"), m_lblSumDate, tr("2026-07-01 10:15"));
-
-    addSummaryLabel(1, 0, tr("Band:"), m_lblSumBand, tr("8-12 GHz"));
-    addSummaryLabel(1, 2, tr("Calibration:"), m_lblSumCal, tr("calchamber8_12ghz.sta"));
-    addSummaryLabel(1, 4, tr("Operator:"), m_lblSumOperator, tr("Operator-01"));
-
-    summaryLayout->addWidget(new QLabel(tr("Status:"), parent), 2, 0);
-    m_lblSumStatus = new QLabel(tr("Completed"), parent);
-    m_lblSumStatus->setStyleSheet("color: #4CAF50; font-weight: bold;");
-    summaryLayout->addWidget(m_lblSumStatus, 2, 1);
-
-    layout->addWidget(summaryBox);
-
-    // Tab Widget
+    // Tab Widget (maximised plot area)
     m_tabWidget = new QTabWidget(parent);
     m_tabWidget->addTab(createOverviewTab(m_tabWidget), tr("Overview"));
     m_tabWidget->addTab(createMagnitudeTab(m_tabWidget), tr("Magnitude Plot"));

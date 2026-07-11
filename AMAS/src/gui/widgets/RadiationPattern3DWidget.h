@@ -16,7 +16,9 @@
 
 namespace AMAS {
 
+#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
 using namespace QtDataVisualization;
+#endif
 
 enum class AntennaPatternType {
     Dipole,
